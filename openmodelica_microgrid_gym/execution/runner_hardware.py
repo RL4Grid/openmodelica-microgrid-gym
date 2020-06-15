@@ -6,7 +6,7 @@ from openmodelica_microgrid_gym.agents import Agent
 from openmodelica_microgrid_gym.env import ModelicaEnv
 
 
-class RunnerHardware:
+class Runner:
     """
     This class will execute an agent on the environment.
     It handles communication between agent and environment and handles the execution of multiple epochs
@@ -40,33 +40,26 @@ class RunnerHardware:
         :param visualise: turns on visualization of the environment
         """
         self.agent.reset()
-        #self.env.history.cols = self.env.history.structured_cols(None) + self.agent.measurement_cols
-        #self.agent.obs_varnames = self.env.history.cols
+        self.env.history.cols = self.env.history.structured_cols(None) + self.agent.measurement_cols
+        self.agent.obs_varnames = self.env.history.cols
 
-        #if not visualise:
-        #    self.env.viz_mode = None
+        if not visualise:
+            self.env.viz_mode = None
         agent_fig = None
 
         for i in tqdm(range(n_episodes), desc='episodes', unit='epoch'):
-            self.env.reset(self.agent.params[0], self.agent.params[1])
-            #self.env.reset(self.agent.params[0], 5)
-            #self.env.reset(0.01, self.agent.params[0])
-            #self.env.render(0)
+            obs = self.env.reset()
             done, r = False, None
             for _ in tqdm(range(self.env.max_episode_steps), desc='steps', unit='step', leave=False):
                 self.agent.observe(r, done)
-                #act = self.agent.act(obs)
-                #self.env.measurement = self.agent.measurement
-                obs, r, done, info = self.env.step()
-                #self.env.render()
+                act = self.agent.act(obs)
+                self.env.measurement = self.agent.measurement
+                obs, r, done, info = self.env.step(act)
+                self.env.render()
                 if done:
                     break
-
-            self.env.render(0)
-            #self.env.render(self.agent.history.df.J.iloc[-1])
             self.agent.observe(r, done)
-
-            print(self.agent.unsafe)
+            _, env_fig = self.env.close()
 
             if visualise:
                 agent_fig = self.agent.render()
@@ -74,5 +67,5 @@ class RunnerHardware:
             self.run_data['last_agent_plt'] = agent_fig
 
             if i == 0 or self.agent.has_improved:
-                #self.run_data['best_env_plt'] = env_fig
+                self.run_data['best_env_plt'] = env_fig
                 self.run_data['best_episode_idx'] = i
