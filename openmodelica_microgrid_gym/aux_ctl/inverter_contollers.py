@@ -359,7 +359,7 @@ class MultiPhaseDQCurrentSourcingController(Controller):
         self._set_hist_cols(['phase',
                              [f'CVI{s}' for s in 'dq0'],
                              [f'SPI{s}' for s in 'dq0'],
-                             [f'm{s}' for s in 'dq0']])
+                             [f'm{s}' for s in 'dq0'],[f'm{s}' for s in 'abc']])
 
         self._prev_CV = np.zeros(N_PHASE)
 
@@ -389,8 +389,9 @@ class MultiPhaseDQCurrentSourcingController(Controller):
         # Current controller calculations
         MVdq0 = self._currentPI.step(SPIdq0, CVIdq0)
 
+        MVabc = dq0_to_abc(MVdq0, phase)
         # Add intern measurment
-        self.history.append([phase, *CVIdq0, *SPIdq0, *MVdq0])
+        self.history.append([phase, *CVIdq0, *SPIdq0, *MVdq0, *MVabc])
 
         # Transform the MVs back to the abc frame
-        return dq0_to_abc(MVdq0, phase)
+        return MVabc
