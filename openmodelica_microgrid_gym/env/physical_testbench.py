@@ -1,13 +1,7 @@
-from socket import socket
-
 import gym
 import paramiko
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-from time import strftime, gmtime, sleep
-
-from paramiko import BadHostKeyException, AuthenticationException, SSHException
 
 from openmodelica_microgrid_gym.util import dq0_to_abc
 
@@ -17,7 +11,7 @@ class TestbenchEnv(gym.Env):
     viz_modes = {'episode', 'step', None}
     """Set of all valid visualisation modes"""
 
-    def __init__(self, host: str = '131.234.172.139', username: str = 'root', password: str = '',
+    def __init__(self, host: str = 'lea-jde10', username: str = 'root', password: str = '',
                  DT: float = 1/20000, executable_script_name: str = 'my_first_hps' ,num_steps: int = 1000,
                  kP: float = 0.01, kI: float = 5.0, i_ref: float = 10.0, f_nom: float = 50.0, i_limit: float = 30,
                  i_nominal: float = 20):
@@ -49,7 +43,7 @@ class TestbenchEnv(gym.Env):
 
             temp = line.decode("utf-8").split(",")
 
-            if len(temp) == 20:
+            if len(temp) == 11:
                 temp.pop(-1)  # Drop the last item
 
                 floats = [float(i) for i in temp]
@@ -63,7 +57,7 @@ class TestbenchEnv(gym.Env):
 
         return decoded_result
 
-    def rew_fun(self, Iabc_meas, Iabc_SP) -> float:
+    def rew_fun(self, Iabc_meas, Idq0_SP, phase) -> float:
         """
         Defines the reward function for the environment. Uses the observations and setpoints to evaluate the quality of the
         used parameters.
@@ -77,7 +71,7 @@ class TestbenchEnv(gym.Env):
         mu = 2
 
         # setpoints
-        #Iabc_SP = dq0_to_abc(Idq0_SP, phase)  # convert dq set-points into three-phase abc coordinates
+        Iabc_SP = dq0_to_abc(Idq0_SP, phase)  # convert dq set-points into three-phase abc coordinates
 
         # control error = mean-root-error (MRE) of reference minus measurement
         # (due to normalization the control error is often around zero -> compared to MSE metric, the MRE provides
@@ -87,35 +81,14 @@ class TestbenchEnv(gym.Env):
                 + -np.sum(mu * np.log(1 - np.maximum(np.abs(Iabc_meas) - self.i_nominal, 0) / \
                 (self.i_limit - self.i_nominal)), axis=0) * self.max_episode_steps
 
-        return error.squeeze()
+        return -error.squeeze()
 
     def reset(self, kP, kI):
         # toDo: ssh connection not open every episode!
         self.kP = kP
         self.kI = kI
 
-        #self.ssh.connect(self.host, username=self.username, password=self.password)
-
-        count_retries = 0
-        connected = False
-
-        #for x in range(10):
-        while not connected and count_retries < 10:
-            count_retries+=1
-            try:
-                print('I Try!')
-                self.ssh.connect(self.host, username=self.username, password=self.password)
-                connected =  True
-                #return True
-            except:# (BadHostKeyException, AuthenticationException,
-                    #SSHException, socket.gaierror) as e:
-                #print(e)
-                print('Argh')
-                sleep(1)
-
-        if count_retries == 10:
-            print( 'SSH FUCKED UP!')
-
+        self.ssh.connect(self.host, username=self.username, password=self.password)
 
 
         #toDo: get SP and kP/I from agent?
@@ -139,11 +112,10 @@ class TestbenchEnv(gym.Env):
         self.current_step += 1
 
         I_abc_meas = temp_data[[3,4,5]]
-        #Idq0_SP = np.array([self.i_ref,0,0])
-        I_abc_SP = temp_data[[10,11,12]]
-        #phase = temp_data[9]
+        Idq0_SP = np.array([self.i_ref,0,0])
+        phase = temp_data[9]
 
-        reward = self.rew_fun(I_abc_meas, I_abc_SP)
+        reward = self.rew_fun(I_abc_meas, Idq0_SP, phase)
 
         if self.current_step == self.max_episode_steps:
             self.done = True
@@ -152,7 +124,7 @@ class TestbenchEnv(gym.Env):
 
         return temp_data, reward, self.done, info
 
-    def render(self, J):
+    def render(self):
 
         N = (len(self.data))
         t = np.linspace(0, N * self.DT, N)
@@ -166,68 +138,16 @@ class TestbenchEnv(gym.Env):
         I_D = self.data[:, 6]
         I_Q = self.data[:, 7]
         I_0 = self.data[:, 8]
-        Ph = self.data[:, 9]
-        SP_A = self.data[:, 10]
-        SP_B = self.data[:, 11]
-        SP_C = self.data[:, 12]
-        m_A = self.data[:, 13]
-        m_B = self.data[:, 14]
-        m_C = self.data[:, 15]
-        m_D = self.data[:, 16]
-        m_Q = self.data[:, 17]
-        m_0 = self.data[:, 18]
 
-        # store measurment to dataframe
-        df = pd.DataFrame({'V_A': self.data[:, 0],
-                           'V_B': self.data[:, 1],
-                           'V_C': self.data[:, 2],
-                           'I_A': self.data[:, 3],
-                           'I_B': self.data[:, 4],
-                           'I_C': self.data[:, 5],
-                           'I_D': self.data[:, 6],
-                           'I_Q': self.data[:, 7],
-                           'I_0': self.data[:, 8],
-                           'Ph': self.data[:, 9],
-                           'SP_A': self.data[:, 10],
-                           'SP_B': self.data[:, 11],
-                           'SP_C': self.data[:, 12],
-                           'm_A': self.data[:, 13],
-                           'm_B': self.data[:, 14],
-                           'm_C': self.data[:, 15],
-                           'm_D': self.data[:, 16],
-                           'm_Q': self.data[:, 17],
-                           'm_0': self.data[:, 18]})
 
-        df.to_pickle('Measurement')
-
-        #plt.plot(t, V_A, t, V_B, t, V_C)
-        #plt.ylabel('Voltages (V)')
-        #plt.show()
-
-        fig = plt.figure()
-        plt.plot(t, I_A, 'b' , label = r'$i_{\mathrm{a}}$')
-        plt.plot(t, I_B, 'g')
-        plt.plot(t, I_C, 'r')
-        plt.plot(t, SP_A, 'b--', label = r'$i_{\mathrm{a}}$')
-        plt.plot(t, SP_B, 'g--')
-        plt.plot(t, SP_C, 'r--')
-        plt.xlabel(r'$t\,/\,\mathrm{s}$')
-        plt.ylabel('$i_{\mathrm{abc}}\,/\,\mathrm{A}$')
-        plt.title('{}'.format(J))
-        plt.grid()
-        plt.legend()
+        plt.plot(t, V_A, t, V_B, t, V_C)
+        plt.ylabel('Voltages (V)')
         plt.show()
-        time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-        fig.savefig('hardwareTest_plt/abcInductor_currents' + time + '.pdf')
 
+        plt.plot(t, I_A, t, I_B, t, I_C)
+        plt.ylabel('Currents (A)')
+        plt.show()
 
-        fig = plt.figure()
         plt.plot(t, I_D, t, I_Q, t, I_0)
-        plt.xlabel(r'$t\,/\,\mathrm{s}$')
-        plt.ylabel('$i_{\mathrm{dq0}}\,/\,\mathrm{A}$')
-        plt.title('{}'.format(J))
-        #plt.ylim([-3, 16])
-        plt.grid()
+        plt.ylabel('Currents DQ0(A)')
         plt.show()
-        time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-        fig.savefig('hardwareTest_plt/dq0Inductor_currents' + time + '.pdf')
