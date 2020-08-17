@@ -207,15 +207,11 @@ class ModelicaEnv(gym.Env):
         :return: noisy observation, if measurement noise is defined
         """
 
-        #if self.measurement_noise == None:
-        #    return self._state
+        if self.measurement_noise == None:
+            return self._state
 
         # toDo: Check if noise fits to obs! (length, order)
-        #return self._state + np.random.normal(0, self.measurement_noise, len(self._state))
-
-        for ii in range(len(self._state)):
-            self._state[ii] = self._state[ii] + np.random.normal(self.measurement_noise[ii,0], self.measurement_noise[ii,1])
-
+        return self._state + np.random.normal(0, self.measurement_noise, len(self._state))
 
 
 
@@ -245,9 +241,8 @@ class ModelicaEnv(gym.Env):
         """
         self.net.reset()
         logger.debug("Experiment reset was called. Resetting the model.")
-        self.sim_time_interval = np.array([self.time_start, self.time_start + self.time_step_size])
         self.model.setup(self.time_start, self.model_output_names)
-
+        self.sim_time_interval = np.array([self.time_start, self.time_start + self.time_step_size])
         self.history.reset()
         self._state = self._simulate()
         self.measurement = []
@@ -307,7 +302,7 @@ class ModelicaEnv(gym.Env):
 
         # Simulate and observe result state
         self._state = self._simulate()
-        self._add_measurement_noise()
+        self._state = self._add_measurement_noise()
         obs = np.hstack((self._state, self.measurement))
         outputs = self.net.augment(obs, self.is_normalized)
         outputs = np.hstack((outputs, obs[len(self.net.out_vars(False)):]))
