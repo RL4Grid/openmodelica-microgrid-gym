@@ -33,7 +33,8 @@ class ModelicaEnv(gym.Env):
                  model_params: Optional[Dict[str, Union[Callable[[float], float], float]]] = None,
                  model_path: str = '../fmu/grid.network.fmu',
                  viz_mode: Optional[str] = 'episode', viz_cols: Optional[Union[str, List[Union[str, PlotTmpl]]]] = None,
-                 history: EmptyHistory = FullHistory()):
+                 history: EmptyHistory = FullHistory(),
+                 measurement_noise = None):
         """
         Initialize the Environment.
         The environment can only be used after reset() is called.
@@ -110,6 +111,7 @@ class ModelicaEnv(gym.Env):
         self.sim_time_interval = None
         self._state = []
         self.measurement = []
+        self.measurement_noise = measurement_noise
         self.record_states = viz_mode == 'episode'
         self.history = history
         self.is_normalized = is_normalized
@@ -197,6 +199,21 @@ class ModelicaEnv(gym.Env):
 
         obs = self.model.obs
         return obs
+
+    def _add_measurement_noise(self) -> np.ndarray:
+        """
+        Adds measurement noise to observation
+
+        :return: noisy observation, if measurement noise is defined
+        """
+
+        if self.measurement_noise == None:
+            return self._state
+
+        # toDo: Check if noise fits to obs! (length, order)
+        return self._state + np.random.normal(0, self.measurement_noise, len(self._state))
+
+
 
     @property
     def is_done(self) -> bool:
@@ -286,6 +303,7 @@ class ModelicaEnv(gym.Env):
 
         # Simulate and observe result state
         self._state = self._simulate()
+        self._state = self._add_measurement_noise()
         obs = np.hstack((self._state, self.measurement))
         outputs = self.net.augment(obs, self.is_normalized)
         outputs = np.hstack((outputs, obs[len(self.net.out_vars(False)):]))
