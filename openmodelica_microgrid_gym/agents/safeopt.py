@@ -194,8 +194,8 @@ class SafeOptAgent(StaticControlAgent):
         else:
             logger.warning('Choose appropriate number of control parameters')
 
-        #plt.show()             # only comment for lengthscale sweep
-        plt.close(figure)       # only needed for lengthscale sweep
+        plt.show()             # only comment for lengthscale sweep
+        #plt.close(figure)       # only needed for lengthscale sweep
         return figure
 
     def prepare_episode(self):
