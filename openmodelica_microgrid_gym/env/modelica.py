@@ -34,7 +34,8 @@ class ModelicaEnv(gym.Env):
                  model_path: str = '../fmu/grid.network.fmu',
                  viz_mode: Optional[str] = 'episode', viz_cols: Optional[Union[str, List[Union[str, PlotTmpl]]]] = None,
                  history: EmptyHistory = FullHistory(),
-                 measurement_noise=np.array([[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]])):
+                 measurement_noise=np.array([[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]),
+                 action_time_delay: int = 0):
         """
         Initialize the Environment.
         The environment can only be used after reset() is called.
@@ -74,6 +75,10 @@ class ModelicaEnv(gym.Env):
                                 to match all data series ending with ".i".
              - list of PlotTmpl: Each template will result in a plot
         :param history: history to store observations and measurement (from the agent) after each step
+
+        :param measurement_noise:
+        :param action_time_delay: Defines how many time steps the controller needs before the action is applied; action
+         is buffered in an array
         """
         if viz_mode not in self.viz_modes:
             raise ValueError(f'Please select one of the following viz_modes: {self.viz_modes}')
@@ -152,6 +157,9 @@ class ModelicaEnv(gym.Env):
         self.action_space = gym.spaces.Box(low=np.full(d_i, -1), high=np.full(d_i, 1))
         self.observation_space = gym.spaces.Box(low=np.full(d_o, -np.inf), high=np.full(d_o, np.inf))
 
+        self.action_time_delay = action_time_delay
+        self.delay_buffer = np.zeros([self.action_time_delay+1, self.action_space.shape[0]])
+
     def _calc_jac(self, t, x) -> np.ndarray:  # noqa
         """
         Compose Jacobian matrix from the directional derivatives of the FMU model.
@@ -214,8 +222,8 @@ class ModelicaEnv(gym.Env):
         # return self._state + np.random.normal(0, self.measurement_noise, len(self._state))
 
         for ii in range(len(self._state)):
-            self._state[ii] = self._state[ii] + np.random.normal(self.measurement_noise[ii, 0],
-                                                                 self.measurement_noise[ii, 1])
+            self._state[ii] = self._state[ii] + np.random.normal(self.measurement_noise.noise_mean[ii],
+                                                                 self.measurement_noise.gains[ii])
 
     @property
     def is_done(self) -> bool:
@@ -291,9 +299,13 @@ class ModelicaEnv(gym.Env):
             logger.error(message)
             raise ValueError(message)
 
+        # put action to first row of line
+        self.delay_buffer[0,:] = action
+
+        # take action from last line of buffer
         # Set input values of the model
-        logger.debug('model input: %s, values: %s', self.model_input_names, action)
-        self.model.set(**dict(zip(self.model_input_names, action)))
+        logger.debug('model input: %s, values: %s', self.model_input_names, self.delay_buffer[-1,:])
+        self.model.set(**dict(zip(self.model_input_names, self.delay_buffer[-1,:])))
 
 
         if self.model_parameters:
@@ -301,9 +313,12 @@ class ModelicaEnv(gym.Env):
         else:
             values = {}
 
-        params =  {**values, **self.net.params(action)}
+        params =  {**values, **self.net.params(self.delay_buffer[-1,:])}
         if params:
             self.model.set_params(**params)
+
+        # shift the buffer
+        self.delay_buffer = np.roll(self.delay_buffer, self.action_space.shape[0])
 
         # Simulate and observe result state
         self._state = self._simulate()
