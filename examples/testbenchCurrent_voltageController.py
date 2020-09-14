@@ -36,10 +36,10 @@ if adjust not in {'Kp', 'Ki', 'Kpi'}:
     raise ValueError("Please set 'adjust' to one of the following values: 'Kp', 'Ki', 'Kpi'")
 
 
-include_simulate = False
-do_measurement = True
+include_simulate = True
+do_measurement = False
 
-safe_results = True
+safe_results = False
 
 lengthscale_vec = np.linspace(0.5,0.5,1)
 unsafe_vec = np.zeros(20)
@@ -47,7 +47,7 @@ unsafe_vec = np.zeros(20)
 # Simulation definitions
 delta_t = 1e-4  # simulation time step size / s
 max_episode_steps = 1000  # number of simulation steps per episode
-num_episodes = 100  # number of simulation episodes (i.e. SafeOpt iterations)
+num_episodes = 5  # number of simulation episodes (i.e. SafeOpt iterations)
 v_DC = 60  # DC-link voltage / V; will be set as model parameter in the FMU
 nomFreq = 50  # nominal grid frequency / Hz
 nomVoltPeak = 230 * 1.414  # nominal grid voltage / V
@@ -182,7 +182,8 @@ if __name__ == '__main__':
             #mutable_params = dict(currentP=MutableFloat(Kp_init), currentI=MutableFloat(Ki_init))
 
             mutable_params = dict(voltageP=MutableFloat(0.1),
-                                  voltageI=MutableFloat(10))
+                                  #voltageI=MutableFloat(10))
+                                  voltageI=MutableFloat(175))
             current_dqp_iparams = PI_params(kP=Kp_init, kI=Ki_init, limits=(-1, 1))
             voltage_dqp_iparams = PI_params(kP=mutable_params['voltageP'], kI=mutable_params['voltageI'],
                                             limits=(-iLimit, iLimit))

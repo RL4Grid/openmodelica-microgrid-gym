@@ -49,14 +49,14 @@ safe_results = False
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'lengthscaleSearchMC50_10')
+save_folder = os.path.join(current_directory, r'KIlengthscaleSearchKP_MC50_10_LocusLimits_unbalanced')
 os.makedirs(save_folder, exist_ok=True)
 
-ii_steps = 1
-kk_steps = 6
+ii_steps = 10
+kk_steps = 1
 
-lengthscale_vec_kI = np.linspace(25, 25, ii_steps)
-lengthscale_vec_kP = np.linspace(0.1, 3, kk_steps)
+lengthscale_vec_kI = np.linspace(5, 100, ii_steps)
+lengthscale_vec_kP = np.linspace(0.05, 0.24, kk_steps)
 unsafe_vec = np.zeros([kk_steps, ii_steps])
 
 np.random.seed(0)
@@ -89,7 +89,7 @@ gain_plant = 1 / R
 # take inverter into account using s&h (exp(-s*delta_T/2))
 Tn = tau_plant  # Due to compensate
 Kp_init = tau_plant / (2 * delta_t * gain_plant * v_DC)
-Ki_init = Kp_init / Tn
+Ki_init = 59 # Due to Matevelli Kp_init / Tn
 
 
 # Kp_init = 0
@@ -139,7 +139,7 @@ class Reward:
 
 if __name__ == '__main__':
 
-    for kk in range(len(lengthscale_vec_kP)):
+    for kk in range(len(lengthscale_vec_kI)):
         #####################################
         # Definitions for the GP
         prior_mean = 0  # 2  # mean factor of the GP prior mean which is multiplied with the first performance of the initial set
@@ -159,9 +159,10 @@ if __name__ == '__main__':
 
         # For 2D example, choose Kp and Ki as mutable parameters (below) and define bounds and lengthscale for both of them
         if adjust == 'Kpi':
-            bounds = [(0.0, 4), (0, 200)]
+            bounds = [(0.0, 1), (0, 250)]
             # lengthscale = [0.3, 25.]
-            lengthscale = [lengthscale_vec_kP[kk], 25.]
+            #lengthscale = [lengthscale_vec_kP[kk], 25.]
+            lengthscale = [0.16, lengthscale_vec_kI[kk]]
 
         # The performance should not drop below the safe threshold, which is defined by the factor safe_threshold times
         # the initial performance: safe_threshold = 0.8 means. Performance measurement for optimization are seen as
@@ -399,7 +400,9 @@ if __name__ == '__main__':
                                [lengthscale_vec_kI]])  # ,
             # 'lengthscale_vec_kP': lengthscale_vec_kP,
             # 'lengthscale_vec_kI': lengthscale_vec_kI})
-            df.to_pickle('Unsafe_matrix')
+            df.to_pickle(save_folder +'/Unsafe_matrix')
+
+            agent.unsafe = False
 
             """
                             #####################################
@@ -407,22 +410,24 @@ if __name__ == '__main__':
                             agent.history.df.to_csv('len_search/result.csv')
 
                             env.history.df.to_pickle('Simulation')
-
+            """
                             # Show best episode measurment (current) plot
-                            best_env_plt = runner.run_data['best_env_plt']
-                            ax = best_env_plt[0].axes[0]
-                            ax.set_title('Best Episode')
-                            best_env_plt[0].show()
+            best_env_plt = runner.run_data['best_env_plt']
+            ax = best_env_plt[0].axes[0]
+            ax.set_title('Best Episode')
+            best_env_plt[0].show()
+            best_env_plt[0].savefig(save_folder + '/best_env_plt{}_{}.png'.format(kk, 1))
                             #best_env_plt[0].savefig('best_env_plt.png')
 
                             # Show worst episode measurment (current) plot
-                            best_env_plt = runner.run_data['worst_env_plt']
-                            ax = best_env_plt[0].axes[0]
-                            ax.set_title('Worst Episode')
-                            best_env_plt[0].show()
-                            #best_env_plt[0].savefig('worst_env_plt.png')
+            best_env_plt = runner.run_data['worst_env_plt']
+            ax = best_env_plt[0].axes[0]
+            ax.set_title('Worst Episode')
+            best_env_plt[0].show()
+            best_env_plt[0].savefig(save_folder + '/worst_env_plt{}_{}.png'.format(kk, 1))
 
-                            """
+
+
             best_agent_plt = runner.run_data['last_agent_plt']
             ax = best_agent_plt.axes[0]
             ax.grid(which='both')
@@ -439,7 +444,8 @@ if __name__ == '__main__':
                 ax.set_ylabel(r'$K_\mathrm{i}\,/\,\mathrm{(VA^{-1}s^{-1})}$')
                 ax.set_xlabel(r'$K_\mathrm{p}\,/\,\mathrm{(VA^{-1})}$')
                 ax.get_figure().axes[1].set_ylabel(r'$J$')
-                ax.set_title('lengthscale {}'.format([lengthscale_vec_kP[kk], lengthscale_vec_kI[ii]]))
+                #ax.set_title('lengthscale {}'.format([lengthscale_vec_kP[kk], lengthscale_vec_kI[0]]))
+                ax.set_title('lengthscale {}'.format([0.16, lengthscale_vec_kI[kk]]))
                 plt.plot(bounds[0], [mutable_params['currentP'].val, mutable_params['currentP'].val], 'k-',
                          zorder=1, lw=4,
                          alpha=.5)
