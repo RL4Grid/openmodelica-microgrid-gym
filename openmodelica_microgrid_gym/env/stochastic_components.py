@@ -49,9 +49,7 @@ class Load:
             (self.load_mean + self.load_mean * self.tolerance)).tolist()
 
 
-
 class Noise:
-
     def __init__(self, noise_mean, noise_std, std_min, std_max):
         """
         Load class which defines stochastic load. Samples load value from normal Gaussian distribution (GD) using given
@@ -65,26 +63,11 @@ class Noise:
         self.noise_mean = noise_mean
         self.std_min = std_min
         self.std_max = std_max
-        if noise_std is None:
-            if any(x == 0 for x in self.noise_mean):
-                self.noise_std = 0.1
-            else:
-                self.noise_std = self.noise_mean * 0.1
-        else:
-            self.noise_std = noise_std
-        #self.gains = np.clip(
-         #   [np.random.normal(self.noise_mean[n], self.noise_std[n]) for n in range(len(self.noise_std))],
-          #  (self.noise_mean - self.noise_mean * self.tolerance),
-           # (self.noise_mean + self.noise_mean * self.tolerance)).tolist()
-        self.gains = [np.clip(np.random.normal(self.noise_mean[n], self.noise_std[n]),
-                              self.std_min,
-                              self.std_max).tolist()
-                      for n in range(len(self.noise_std))]
-
+        self.noise_std = noise_std
+        self.reset()
 
     def reset(self):
-        self.gains = [np.clip(np.random.normal(self.noise_mean[n], self.noise_std[n]),
-                              self.std_min,
-                              self.std_max).tolist()
-                      for n in range(len(self.noise_std))]
+        self.gains = np.clip(np.random.normal(self.noise_mean, self.noise_std), self.std_min, self.std_max)
 
+    def __len__(self):
+        return len(self.gains)

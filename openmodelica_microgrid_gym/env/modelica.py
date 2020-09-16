@@ -13,6 +13,7 @@ from scipy import integrate
 
 from openmodelica_microgrid_gym.env.plot import PlotTmpl
 from openmodelica_microgrid_gym.env.pyfmi import PyFMI_Wrapper
+from openmodelica_microgrid_gym.env.stochastic_components import Noise
 from openmodelica_microgrid_gym.net.net import Network
 from openmodelica_microgrid_gym.util import FullHistory, EmptyHistory
 
@@ -34,7 +35,7 @@ class ModelicaEnv(gym.Env):
                  model_path: str = '../fmu/grid.network.fmu',
                  viz_mode: Optional[str] = 'episode', viz_cols: Optional[Union[str, List[Union[str, PlotTmpl]]]] = None,
                  history: EmptyHistory = FullHistory(),
-                 measurement_noise=np.array([[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]),
+                 state_noise: Optional[Noise] =None,
                  action_time_delay: int = 0):
         """
         Initialize the Environment.
@@ -116,7 +117,6 @@ class ModelicaEnv(gym.Env):
         self.sim_time_interval = None
         self._state = []
         self.measurement = []
-        self.measurement_noise = measurement_noise
         self.record_states = viz_mode == 'episode'
         self.history = history
         self.is_normalized = is_normalized
@@ -125,6 +125,13 @@ class ModelicaEnv(gym.Env):
         self.model_input_names = self.net.in_vars()
         # variable names are flattened to a list if they have specified in the nested dict manner)
         self.model_output_names = self.net.out_vars(False, True)
+
+
+        if state_noise is None:
+            state_noise = Noise(np.zeros(len(self.history.cols)), np.zeros(len(self.history.cols)), 0.0, 0.0)
+        if len(self.history.cols) != len(state_noise):
+            raise ValueError('Number of model_outputs does not align with number of noise values!')
+        self.state_noise = state_noise
 
         self.viz_col_tmpls = []
         if viz_cols is None:
@@ -208,23 +215,6 @@ class ModelicaEnv(gym.Env):
         obs = self.model.obs
         return obs
 
-    def _add_measurement_noise(self) -> np.ndarray:
-        """
-        Adds measurement noise to observation
-
-        :return: noisy observation, if measurement noise is defined
-        """
-
-        # if self.measurement_noise == None:
-        #    return self._state
-
-        # toDo: Check if noise fits to obs! (length, order)
-        # return self._state + np.random.normal(0, self.measurement_noise, len(self._state))
-
-        for ii in range(len(self._state)):
-            self._state[ii] = self._state[ii] + np.random.normal(self.measurement_noise.noise_mean[ii],
-                                                                 self.measurement_noise.gains[ii])
-
     @property
     def is_done(self) -> bool:
         """
@@ -258,6 +248,7 @@ class ModelicaEnv(gym.Env):
 
         self.history.reset()
         self._state = self._simulate()
+        self._state += self.state_noise.gains
         self.measurement = []
         self._failed = False
         self._register_render = False
@@ -322,7 +313,7 @@ class ModelicaEnv(gym.Env):
 
         # Simulate and observe result state
         self._state = self._simulate()
-        self._add_measurement_noise()
+        self._state += self.state_noise.gains
         obs = np.hstack((self._state, self.measurement))
         outputs = self.net.augment(obs, self.is_normalized)
         outputs = np.hstack((outputs, obs[len(self.net.out_vars(False)):]))
