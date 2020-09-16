@@ -384,7 +384,7 @@ class MultiPhaseDQCurrentSourcingController(Controller):
         CVIdq0 = abc_to_dq0(currentCV, phase)
 
         # current setpoint
-        SPIdq0 = idq0SP
+        SPIdq0 = np.array(idq0SP[:])
         SPIabc = dq0_to_abc(SPIdq0, phase)
         # Current controller calculations
         MVdq0 = self._currentPI.step(SPIdq0, CVIdq0)

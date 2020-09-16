@@ -4,6 +4,7 @@ from typing import List, Mapping, Union
 import numpy as np
 
 from openmodelica_microgrid_gym.agents import Agent
+from openmodelica_microgrid_gym.agents.util import MutableParams
 from openmodelica_microgrid_gym.aux_ctl import Controller
 
 
@@ -27,7 +28,7 @@ class ObsTempl:
         self._data = []
 
         for i, tmpl in enumerate(simple_tmpl):
-            if isinstance(tmpl, np.ndarray):
+            if isinstance(tmpl, np.ndarray) or isinstance(tmpl, MutableParams):
                 # all np.ndarrays are considered static parameters
                 self._static_params.add(i)
                 self._data.append(tmpl)
