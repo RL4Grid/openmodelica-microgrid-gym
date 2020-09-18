@@ -23,13 +23,15 @@ from openmodelica_microgrid_gym.aux_ctl import PI_params, DroopParams, MultiPhas
     MultiPhaseDQ0PIPIController
 from openmodelica_microgrid_gym.env import PlotTmpl
 from openmodelica_microgrid_gym.env.stochastic_components import Load, Noise
+from openmodelica_microgrid_gym.execution.monte_carlo_runner import MonteCarloRunner
 from openmodelica_microgrid_gym.util import dq0_to_abc, nested_map, FullHistory
 
 # Simulation definitions
 delta_t = 0.5e-4  # simulation time step size / s
 max_episode_steps = 1000  # number of simulation steps per episode
 num_episodes = 5  # number of simulation episodes (i.e. SafeOpt iterations)
-v_DC = 1000  # DC-link voltage / V; will be set as model parameter in the FMU
+n_MC = 2
+v_DC = 60  # DC-link voltage / V; will be set as model parameter in the FMU
 nomFreq = 50  # nominal grid frequency / Hz
 nomVoltPeak = 230 * 1.414  # nominal grid voltage / V
 iLimit = 30  # inverter current limit / A
@@ -306,7 +308,11 @@ if __name__ == '__main__':
                                  'lc.resistor3.R': partial(r_load.load_step, n=2),
                                  'lc.inductor1.L': partial(l_load.load_step, n=0),
                                  'lc.inductor2.L': partial(l_load.load_step, n=1),
-                                 'lc.inductor3.L': partial(l_load.load_step, n=2)},
+                                 'lc.inductor3.L': partial(l_load.load_step, n=2),
+                                 'r_load.resistor1.L': partial(l_load.load_step, n=0),
+                                 'r_load.resistor2.L': partial(l_load.load_step, n=1),
+                                 'r_load.resistor3.L': partial(l_load.load_step, n=2)
+                                 },
                    model_path='../fmu/grid.paper.fmu',
                    model_input=['i1p1', 'i1p2', 'i1p3'],
                    # model_output=dict(#rl=[['inductor1.i', 'inductor2.i', 'inductor3.i'],

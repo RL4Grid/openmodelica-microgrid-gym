@@ -219,10 +219,18 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
         if np.isnan(self.episode_return):
             # toDo: set reward to -inf and stop agent?
             # warning mit logger
-            logger.warning('UNSAFE! Limit exceeded, epsiode abort, give a reward of {} times the '
-                           'initial reward'.format(self.abort_reward))
-            # set r to doubled (negative!) initial reward
-            self._performance = self.abort_reward
+            print('Reward exceeded bad bound! Continue?(Type Y/N)')
+            variable = input('Does this spike make sence?! (Type Y/N): ')
+            if variable == 'N':
+                self.episode_return = -300
+            elif variable == 'Y':
+                logger.warning('UNSAFE! Limit exceeded, epsiode abort, give a reward of {} times the '
+                               'initial reward'.format(self.abort_reward))
+                # set r to doubled (negative!) initial reward
+                self._performance = self.abort_reward
+            else:
+                print('Choose appropiate answer! Programm will run with J =1')
+                self.episode_return = -300
 
         if self._performance is None:
             # Performance = inverse average return (return/iterations)^⁻1 normalized by initial performance

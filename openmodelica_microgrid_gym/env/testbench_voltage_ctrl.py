@@ -12,7 +12,7 @@ from paramiko import BadHostKeyException, AuthenticationException, SSHException
 from openmodelica_microgrid_gym.util import dq0_to_abc
 
 
-class TestbenchEnv(gym.Env):
+class TestbenchEnvVoltage(gym.Env):
 
     viz_modes = {'episode', 'step', None}
     """Set of all valid visualisation modes"""
@@ -67,7 +67,7 @@ class TestbenchEnv(gym.Env):
 
         return decoded_result
 
-    def rew_fun(self, Iabc_meas, Iabc_SP) -> float:
+    def rew_fun(self, vsp_abc, vabc_meas) -> float:
         """
         Defines the reward function for the environment. Uses the observations and setpoints to evaluate the quality of the
         used parameters.
@@ -88,19 +88,19 @@ class TestbenchEnv(gym.Env):
         #  better, i.e. more significant,  gradients)
         # plus barrier penalty for violating the current constraint
         #error = np.sum((np.abs((Vabc_SP - vabc_meas)) / self.v_nominal) ** 0.5, axis=0) #+\
-        error =  np.sum((np.abs((Iabc_SP - Iabc_meas)) / self.i_limit) ** 0.5, axis=0) \
-                + -np.sum(mu * np.log(1 - np.maximum(np.abs(Iabc_meas) - self.i_nominal, 0) / \
-                (self.i_limit - self.i_nominal)), axis=0) * self.max_episode_steps
+        error = np.sum((np.abs((vsp_abc - vabc_meas)) / self.v_nominal) ** 0.5, axis=0) +\
+                -np.sum(mu * np.log(1 - np.maximum(np.abs(vsp_abc) - 25, 0) / (50 - 25)), axis=0) \
+                * self.max_episode_steps
 
 
         return -error.squeeze()
 
-    def reset(self, kP, kI):#, kPv, kIv):
+    def reset(self, kP, kI, kPv, kIv):
         # toDo: ssh connection not open every episode!
         self.kP = kP
         self.kI = kI
-        #self.kPV = kPv
-        #self.kIV = kIv
+        self.kPV = kPv
+        self.kIV = kIv
 
         #self.ssh.connect(self.host, username=self.username, password=self.password)
 
@@ -130,9 +130,10 @@ class TestbenchEnv(gym.Env):
         #str_command = './{} {} {} {} {} {}'.format(self.executable_script_name, self.max_episode_steps, self.kP, self.kI,
         #                                           self.i_ref, self.f_nom)
 
-        str_command = './{} {} {} {} {} {} {}'.format(self.executable_script_name, self.max_episode_steps, self.kP,
-                                                   self.kI,
-                                                   self.ref, self.ref2,  self.f_nom)
+        str_command = './{} {} {} {} {} {} {} {} {} {}'.format(self.executable_script_name, self.max_episode_steps, np.int(self.max_episode_steps/3),
+                                                               np.int(self.max_episode_steps *2/ 3),
+                                                      self.kP, self.kI, self.kPV, self.kIV,
+                                                   self.v_nominal,   self.f_nom)
 
         ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(str_command)
 
@@ -151,12 +152,14 @@ class TestbenchEnv(gym.Env):
         temp_data = self.data[self.current_step]
         self.current_step += 1
 
+
+        V_abc_meas = temp_data[[0,1,2]]
         I_abc_meas = temp_data[[3,4,5]]
         #Idq0_SP = np.array([self.i_ref,0,0])
-        I_abc_SP = temp_data[[10,11,12]]
+        V_abc_SP = temp_data[[10,11,12]]
         #phase = temp_data[9]
 
-        reward = self.rew_fun(I_abc_meas, I_abc_SP)
+        reward = self.rew_fun(V_abc_meas, V_abc_SP)
 
         #V_abc_meas = temp_data[[0, 1, 2]]
         # Idq0_SP = np.array([self.i_ref,0,0])
@@ -222,7 +225,7 @@ class TestbenchEnv(gym.Env):
         #plt.plot(t, V_A, t, V_B, t, V_C)
         #plt.ylabel('Voltages (V)')
         #plt.show()
-        """
+
         fig = plt.figure()
         plt.plot(t, V_A, 'b', label=r'$v_{\mathrm{a}}$')
         plt.plot(t, V_B, 'g')
@@ -232,33 +235,33 @@ class TestbenchEnv(gym.Env):
         plt.plot(t, SP_C, 'r--')
         plt.xlabel(r'$t\,/\,\mathrm{s}$')
         plt.ylabel('$v_{\mathrm{abc}}\,/\,\mathrm{V}$')
-        plt.title('{}'.format(J))
+        #plt.title('{}'.format(J))
         plt.grid()
         plt.legend()
         plt.show()
-        time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+        #time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         # fig.savefig('hardwareTest_plt/{}_abcInductor_currents' + time + '.pdf'.format(J))
-        fig.savefig('Paper_meas/J_{}_abcvoltage.pdf'.format(J))
-        """
+        fig.savefig('Paper_meas_voltage_both/J_{}_abcvoltage.pdf'.format(J))
+
 
 
         fig = plt.figure()
         plt.plot(t, I_A, 'b' , label = r'$i_{\mathrm{a}}$')
         plt.plot(t, I_B, 'g')
         plt.plot(t, I_C, 'r')
-        plt.plot(t, SP_A, 'b--', label = r'$i_{\mathrm{a}}$')
-        plt.plot(t, SP_B, 'g--')
-        plt.plot(t, SP_C, 'r--')
+        #plt.plot(t, SP_A, 'b--', label = r'$i_{\mathrm{a}}$')
+        #plt.plot(t, SP_B, 'g--')
+        #plt.plot(t, SP_C, 'r--')
         plt.xlabel(r'$t\,/\,\mathrm{s}$')
         plt.ylabel('$i_{\mathrm{abc}}\,/\,\mathrm{A}$')
-        plt.title('{}'.format(J))
+        #plt.title('{}'.format(J))
         plt.grid()
         plt.legend()
         plt.show()
-        time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+        #time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         #fig.savefig('hardwareTest_plt/{}_abcInductor_currents' + time + '.pdf'.format(J))
-        fig.savefig('Paper_meas/J_{}_abcInductor_currents.pdf'.format(J))
-
+        fig.savefig('Paper_meas_voltage_both/J_{}_abcInductor_currents.pdf'.format(J))
+        """
 
         fig = plt.figure()
         plt.plot(t, I_D, t, I_Q, t, I_0)
@@ -271,3 +274,4 @@ class TestbenchEnv(gym.Env):
         time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         #fig.savefig('hardwareTest_plt/dq0Inductor_currents' + time + '.pdf')
         fig.savefig('Paper_meas/J_{}_dq0Inductor_currents.pdf'.format(J))
+        """
