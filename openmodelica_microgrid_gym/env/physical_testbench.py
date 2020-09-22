@@ -53,8 +53,8 @@ class TestbenchEnv(gym.Env):
 
             temp = line.decode("utf-8").split(",")
 
-            if len(temp) == 29:
-                temp.pop(-1)  # Drop the last item
+            if len(temp) == 31:
+                #temp.pop(-1)  # Drop the last item
 
                 floats = [float(i) for i in temp]
                 # print(floats)
@@ -88,9 +88,10 @@ class TestbenchEnv(gym.Env):
         #  better, i.e. more significant,  gradients)
         # plus barrier penalty for violating the current constraint
         #error = np.sum((np.abs((Vabc_SP - vabc_meas)) / self.v_nominal) ** 0.5, axis=0) #+\
-        error =  np.sum((np.abs((Iabc_SP - Iabc_meas)) / self.i_limit) ** 0.5, axis=0) \
+        error =  (np.sum((np.abs((Iabc_SP - Iabc_meas)) / self.i_limit) ** 0.5, axis=0) \
                 + -np.sum(mu * np.log(1 - np.maximum(np.abs(Iabc_meas) - self.i_nominal, 0) / \
-                (self.i_limit - self.i_nominal)), axis=0) * self.max_episode_steps
+                (self.i_limit - self.i_nominal)), axis=0) \
+                )/ self.max_episode_steps
 
 
         return -error.squeeze()
@@ -175,6 +176,8 @@ class TestbenchEnv(gym.Env):
         N = (len(self.data))
         t = np.linspace(0, N * self.DT, N)
 
+
+
         V_A = self.data[:, 0]
         V_B = self.data[:, 1]
         V_C = self.data[:, 2]
@@ -184,19 +187,33 @@ class TestbenchEnv(gym.Env):
         I_D = self.data[:, 6]
         I_Q = self.data[:, 7]
         I_0 = self.data[:, 8]
-        Ph = self.data[:, 9]
-        SP_A = self.data[:, 10]
-        SP_B = self.data[:, 11]
-        SP_C = self.data[:, 12]
-        m_A = self.data[:, 13]
-        m_B = self.data[:, 14]
-        m_C = self.data[:, 15]
-        m_D = self.data[:, 16]
-        m_Q = self.data[:, 17]
-        m_0 = self.data[:, 18]
+        SP_A = self.data[:, 9]
+        SP_B = self.data[:, 10]
+        SP_C = self.data[:, 11]
+        m_A = self.data[:, 12]
+        m_B = self.data[:, 13]
+        m_C = self.data[:, 14]
+        m_D = self.data[:, 15]
+        m_Q = self.data[:, 16]
+        m_0 = self.data[:, 17]
+        ICont_Out_D = self.data[:, 18]
+        ICont_Out_Q = self.data[:, 19]
+        ICont_Out_0 = self.data[:, 20]
+        UCont_Out_D = self.data[:, 21]
+        UCont_Out_Q = self.data[:, 22]
+        UCont_Out_0 = self.data[:, 23]
+        ISP_A = self.data[:, 24]
+        ISP_B = self.data[:, 25]
+        ISP_C = self.data[:, 26]
+        V_D = self.data[:, 27]
+        V_Q = self.data[:, 28]
+        V_0 = self.data[:, 29]
+        Ph = self.data[:, 30]
+
 
         # store measurment to dataframe
-        df = pd.DataFrame({'V_A': self.data[:, 0],
+        df = pd.DataFrame({
+                           'V_A': self.data[:, 0],
                            'V_B': self.data[:, 1],
                            'V_C': self.data[:, 2],
                            'I_A': self.data[:, 3],
@@ -205,19 +222,21 @@ class TestbenchEnv(gym.Env):
                            'I_D': self.data[:, 6],
                            'I_Q': self.data[:, 7],
                            'I_0': self.data[:, 8],
-                           'Ph': self.data[:, 9],
-                           'SP_A': self.data[:, 10],
-                           'SP_B': self.data[:, 11],
-                           'SP_C': self.data[:, 12],
-                           'm_A': self.data[:, 13],
-                           'm_B': self.data[:, 14],
-                           'm_C': self.data[:, 15],
-                           'm_D': self.data[:, 16],
-                           'm_Q': self.data[:, 17],
-                           'm_0': self.data[:, 18]})
+                           'Ph': self.data[:, 30]
+                          })
+        # rest does not fit yet! See above
+                           #'SP_A': self.data[:, 10],
+                           #'SP_B': self.data[:, 11],
+                           #'SP_C': self.data[:, 12],
+                           #'m_A': self.data[:, 13],
+                           #'m_B': self.data[:, 14],
+                           #'m_C': self.data[:, 15],
+                           #'m_D': self.data[:, 16],
+                           #'m_Q': self.data[:, 17],
+                           #'m_0': self.data[:, 18]})
 
         #df.to_pickle('Measurement')
-        #df.to_pickle('Noise_measurement')
+        df.to_pickle('Noise_measurement')
 
         #plt.plot(t, V_A, t, V_B, t, V_C)
         #plt.ylabel('Voltages (V)')
@@ -237,37 +256,39 @@ class TestbenchEnv(gym.Env):
         plt.legend()
         plt.show()
         time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
-        # fig.savefig('hardwareTest_plt/{}_abcInductor_currents' + time + '.pdf'.format(J))
-        fig.savefig('Paper_meas/J_{}_abcvoltage.pdf'.format(J))
+        # fig.savefig('Paper_CC_meas3/{}_abcInductor_currents' + time + '.pdf'.format(J))
+        fig.savefig('Paper_CC_meas3/J_{}_abcvoltage.pdf'.format(J))
         """
 
 
         fig = plt.figure()
-        plt.plot(t, I_A, 'b' , label = r'$i_{\mathrm{a}}$')
+        plt.plot(t, I_A, 'b' , label = r'Measurement')
         plt.plot(t, I_B, 'g')
         plt.plot(t, I_C, 'r')
-        plt.plot(t, SP_A, 'b--', label = r'$i_{\mathrm{a}}$')
+        plt.plot(t, SP_A, 'b--', label = r'Setpoint')
         plt.plot(t, SP_B, 'g--')
         plt.plot(t, SP_C, 'r--')
         plt.xlabel(r'$t\,/\,\mathrm{s}$')
         plt.ylabel('$i_{\mathrm{abc}}\,/\,\mathrm{A}$')
-        plt.title('{}'.format(J))
+        #plt.title('{}'.format(J))
         plt.grid()
         plt.legend()
         plt.show()
         time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         #fig.savefig('hardwareTest_plt/{}_abcInductor_currents' + time + '.pdf'.format(J))
-        fig.savefig('Paper_meas/J_{}_abcInductor_currents.pdf'.format(J))
+        fig.savefig('CC_meas_Fig9_1/J_{}_abcInductor_currents.pdf'.format(J))
+        fig.savefig('CC_meas_Fig9_1/J_{}_abcInductor_currents.pgf'.format(J))
 
 
         fig = plt.figure()
         plt.plot(t, I_D, t, I_Q, t, I_0)
         plt.xlabel(r'$t\,/\,\mathrm{s}$')
         plt.ylabel('$i_{\mathrm{dq0}}\,/\,\mathrm{A}$')
-        plt.title('{}'.format(J))
+        #plt.title('{}'.format(J))
         #plt.ylim([-3, 16])
         plt.grid()
         plt.show()
         time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         #fig.savefig('hardwareTest_plt/dq0Inductor_currents' + time + '.pdf')
-        fig.savefig('Paper_meas/J_{}_dq0Inductor_currents.pdf'.format(J))
+        fig.savefig('CC_meas_Fig9_1/J_{}_dq0Inductor_currents.pdf'.format(J))
+        fig.savefig('CC_meas_Fig9_1/J_{}_dq0Inductor_currents.pgf'.format(J))

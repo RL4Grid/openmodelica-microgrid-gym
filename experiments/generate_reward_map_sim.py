@@ -201,9 +201,9 @@ if __name__ == '__main__':
                 #plt.ylim(0,36)
 
     env = gym.make('openmodelica_microgrid_gym:ModelicaEnv_test-v1',
-                        reward_fun=Reward().rew_fun,
-                        time_step=delta_t,
-                        viz_cols=[
+                   reward_fun=Reward().rew_fun,
+                   time_step=delta_t,
+                   viz_cols=[
                             PlotTmpl([f'rl.inductor{i}.i' for i in '123'],
                                         callback=xylables
                                         ),
@@ -217,18 +217,18 @@ if __name__ == '__main__':
                                #         #callback=xylables_dq0
                                #         )
                         ],
-                        #viz_cols = ['inverter1.*', 'rl.inductor1.i'],
-                        log_level=logging.INFO,
-                        viz_mode='episode',
-                        max_episode_steps=max_episode_steps,
-                        #model_params={'inverter1.gain.u': v_DC},
-                        model_path='../fmu/grid.testbench_SC.fmu',
-                        model_input=['i1p1', 'i1p2', 'i1p3'],
-                        model_output=dict(rl=[['inductor1.i', 'inductor2.i', 'inductor3.i']],
+                   #viz_cols = ['inverter1.*', 'rl.inductor1.i'],
+                   log_level=logging.INFO,
+                   viz_mode='episode',
+                   max_episode_steps=max_episode_steps,
+                   #model_params={'inverter1.gain.u': v_DC},
+                   model_path='../fmu/grid.testbench_SC.fmu',
+                   model_input=['i1p1', 'i1p2', 'i1p3'],
+                   model_output=dict(rl=[['inductor1.i', 'inductor2.i', 'inductor3.i']],
                                              #inverter1=['inductor1.i', 'inductor2.i', 'inductor3.i']
                                            ),
-                        history=FullHistory()
-                    )
+                   history=FullHistory()
+                   )
     #####################################
     # Execution of the experiment
     # Using a runner to execute 'num_episodes' different episodes (i.e. SafeOpt iterations)

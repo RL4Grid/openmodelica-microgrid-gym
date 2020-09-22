@@ -49,8 +49,8 @@ class RunnerHardware:
         agent_fig = None
 
         for i in tqdm(range(n_episodes), desc='episodes', unit='epoch'):
-            self.env.reset(0.1916, 59., self.agent.params[0], self.agent.params[1])
-            #self.env.reset(self.agent.params[0], self.agent.params[1])
+            #self.env.reset(0.1916, 59., self.agent.params[0], self.agent.params[1])
+            self.env.reset(self.agent.params[0], self.agent.params[1])
             #self.env.reset(0.01, self.agent.params[0])
             #self.env.render(0)
             done, r = False, None
@@ -62,16 +62,16 @@ class RunnerHardware:
                 #self.env.render()
                 if done:
                     break
-
+            self.env.render(0)
             self.agent.observe(r, done)
-            #self.env.render(0)
+
             self.env.render(self.agent.history.df.J.iloc[-1])
 
 
             print(self.agent.unsafe)
 
- #           if visualise:
-#                agent_fig = self.agent.render()
+            if visualise:
+                agent_fig = self.agent.render()
 
             self.run_data['last_agent_plt'] = agent_fig
 

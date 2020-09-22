@@ -1983,16 +1983,6 @@ package grid
       Placement(visible = true, transformation(origin = {-104, 42}, extent = {{-8, -8}, {8, 8}}, rotation = 0), iconTransformation(origin = {-104, 42}, extent = {{-8, -8}, {8, 8}}, rotation = 0)));
   grid.filter.lc lc(C1 = 0.0000136, C2 = 0.0000136, C3 = 0.0000136, L1 = 0.0023, L2 = 0.0023, L3 = 0.0023, R1 = 0.4, R2 = 0.4, R3 = 0.4, R4 = 0, R5 = 0, R6 = 0)  annotation(
       Placement(visible = true, transformation(origin = {-32, 30}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-  Modelica.Electrical.Analog.Basic.Ground ground1 annotation(
-      Placement(visible = true, transformation(origin = {12, -68}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-  Modelica.Electrical.Analog.Basic.Ground ground annotation(
-      Placement(visible = true, transformation(origin = {12, -68}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-  Modelica.Electrical.Analog.Basic.Ground ground2 annotation(
-      Placement(visible = true, transformation(origin = {12, -68}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-  Modelica.Electrical.Analog.Basic.Ground ground3 annotation(
-      Placement(visible = true, transformation(origin = {12, -68}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
-  Modelica.Electrical.Analog.Basic.Ground ground4 annotation(
-      Placement(visible = true, transformation(origin = {12, -68}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   Modelica.Electrical.Analog.Basic.Ground ground5 annotation(
       Placement(visible = true, transformation(origin = {6, 14}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   equation
@@ -2027,7 +2017,7 @@ package grid
       Placement(visible = true, transformation(origin = {-104, 30}, extent = {{-8, -8}, {8, 8}}, rotation = 0), iconTransformation(origin = {-104, 30}, extent = {{-8, -8}, {8, 8}}, rotation = 0)));
     Modelica.Blocks.Interfaces.RealInput i1p3 annotation(
       Placement(visible = true, transformation(origin = {-104, 42}, extent = {{-8, -8}, {8, 8}}, rotation = 0), iconTransformation(origin = {-104, 42}, extent = {{-8, -8}, {8, 8}}, rotation = 0)));
-  grid.filter.lc lc(C1 = 0.0000136, C2 = 0.0000136, C3 = 0.0000136, L1 = 0.0023, L2 = 0.0023, L3 = 0.0023, R1 = 0.4, R2 = 0.4, R3 = 0.4, R4 = 0, R5 = 0, R6 = 0)  annotation(
+  grid.filter.lc lc(C1 = 0.0000136, C2 = 0.0000136, C3 = 0.0000136, L1 = 0.0023, L2 = 0.0023, L3 = 0.0023, R1 = 0.4, R2 = 0.4, R3 = 0.4, R4 = 0.000001, R5 = 0.000001, R6 = 0.000001)  annotation(
       Placement(visible = true, transformation(origin = {-32, 30}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
   grid.loads.r r_load(R1 = 7.15, R2 = 7.15, R3 = 7.15)  annotation(
       Placement(visible = true, transformation(origin = {10, 30}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
@@ -2053,6 +2043,79 @@ package grid
     annotation(
       Diagram);
   end paper_loadstep;
+  
+  model paper_stepfuncion
+    grid.inverters.inverter inverter1(v_DC = 60)  annotation(
+      Placement(visible = true, transformation(origin = {-70, 30}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  grid.filter.lc lc(C1 = 0.0000136, C2 = 0.0000136, C3 = 0.0000136, L1 = 0.0023, L2 = 0.0023, L3 = 0.0023, R1 = 0.4, R2 = 0.4, R3 = 0.4, R4 = 0, R5 = 0, R6 = 0)  annotation(
+      Placement(visible = true, transformation(origin = {-30, 30}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Modelica.Electrical.Analog.Basic.Ground ground5 annotation(
+      Placement(visible = true, transformation(origin = {6, 14}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Modelica.Blocks.Sources.Step step annotation(
+      Placement(visible = true, transformation(origin = {-122, 44}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  equation
+  connect(lc.pin3, inverter1.pin3) annotation(
+      Line(points = {{-40, 36}, {-60, 36}}, color = {0, 0, 255}));
+  connect(lc.pin2, inverter1.pin2) annotation(
+      Line(points = {{-40, 30}, {-60, 30}}, color = {0, 0, 255}));
+  connect(lc.pin1, inverter1.pin1) annotation(
+      Line(points = {{-40, 24}, {-60, 24}}, color = {0, 0, 255}));
+  connect(lc.pin6, ground5.p) annotation(
+      Line(points = {{-20, 36}, {-7, 36}, {-7, 24}, {6, 24}}, color = {0, 0, 255}));
+  connect(lc.pin5, ground5.p) annotation(
+      Line(points = {{-20, 30}, {-5, 30}, {-5, 24}, {6, 24}}, color = {0, 0, 255}));
+  connect(lc.pin4, ground5.p) annotation(
+      Line(points = {{-20, 24}, {6, 24}}, color = {0, 0, 255}));
+  connect(step.y, inverter1.u2) annotation(
+      Line(points = {{-110, 44}, {-94, 44}, {-94, 30}, {-80, 30}, {-80, 30}}, color = {0, 0, 127}));
+  connect(inverter1.u3, step.y) annotation(
+      Line(points = {{-80, 36}, {-108, 36}, {-108, 44}, {-110, 44}, {-110, 44}}, color = {0, 0, 127}));
+  connect(inverter1.u1, step.y) annotation(
+      Line(points = {{-80, 24}, {-104, 24}, {-104, 44}, {-112, 44}, {-112, 44}, {-110, 44}}, color = {0, 0, 127}));
+    annotation(
+      Diagram);
+  end paper_stepfuncion;
+  
+  model step
+  Modelica.Blocks.Sources.Step step annotation(
+      Placement(visible = true, transformation(origin = {-22, 34}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  equation
+
+    annotation(
+      Diagram);
+  end step;
+  
+  model paper_loadstep_stepfu
+    grid.inverters.inverter inverter1(v_DC = 60)  annotation(
+      Placement(visible = true, transformation(origin = {-70, 30}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  grid.filter.lc lc(C1 = 0.0000136, C2 = 0.0000136, C3 = 0.0000136, L1 = 0.0023, L2 = 0.0023, L3 = 0.0023, R1 = 0.4, R2 = 0.4, R3 = 0.4, R4 = 0, R5 = 0, R6 = 0)  annotation(
+      Placement(visible = true, transformation(origin = {-32, 30}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  Modelica.Blocks.Sources.Step step annotation(
+      Placement(visible = true, transformation(origin = {-104, 44}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  loads.r r_load(R1 = 7.15, R2 = 7.15, R3 = 7.15) annotation(
+      Placement(visible = true, transformation(origin = {10, 30}, extent = {{-10, -10}, {10, 10}}, rotation = 0)));
+  equation
+    connect(lc.pin3, inverter1.pin3) annotation(
+      Line(points = {{-42, 36}, {-60, 36}, {-60, 36}, {-60, 36}}, color = {0, 0, 255}));
+    connect(lc.pin2, inverter1.pin2) annotation(
+      Line(points = {{-42, 30}, {-60, 30}, {-60, 30}, {-60, 30}}, color = {0, 0, 255}));
+    connect(lc.pin1, inverter1.pin1) annotation(
+      Line(points = {{-42, 24}, {-60, 24}, {-60, 24}, {-60, 24}}, color = {0, 0, 255}));
+    connect(step.y, inverter1.u3) annotation(
+      Line(points = {{-92, 44}, {-86, 44}, {-86, 36}, {-80, 36}, {-80, 36}}, color = {0, 0, 127}));
+    connect(inverter1.u2, step.y) annotation(
+      Line(points = {{-80, 30}, {-86, 30}, {-86, 44}, {-92, 44}, {-92, 44}}, color = {0, 0, 127}));
+    connect(inverter1.u1, step.y) annotation(
+      Line(points = {{-80, 24}, {-86, 24}, {-86, 44}, {-92, 44}, {-92, 44}, {-92, 44}}, color = {0, 0, 127}));
+    connect(r_load.pin1, lc.pin4) annotation(
+      Line(points = {{0, 24}, {-22, 24}, {-22, 24}, {-22, 24}}, color = {0, 0, 255}));
+    connect(r_load.pin2, lc.pin5) annotation(
+      Line(points = {{0, 30}, {-22, 30}, {-22, 30}, {-22, 30}}, color = {0, 0, 255}));
+    connect(r_load.pin3, lc.pin6) annotation(
+      Line(points = {{0, 36}, {-22, 36}, {-22, 36}, {-22, 36}}, color = {0, 0, 255}));
+    annotation(
+      Diagram);
+  end paper_loadstep_stepfu;
   annotation(
     uses(Modelica(version = "3.2.3")));
 end grid;

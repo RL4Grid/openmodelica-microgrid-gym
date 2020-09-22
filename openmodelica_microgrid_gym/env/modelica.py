@@ -128,8 +128,8 @@ class ModelicaEnv(gym.Env):
 
 
         if state_noise is None:
-            state_noise = Noise(np.zeros(len(self.history.cols)), np.zeros(len(self.history.cols)), 0.0, 0.0)
-        if len(self.history.cols) != len(state_noise):
+            state_noise = Noise(np.zeros(len(self.model_output_names)), np.zeros(len(self.model_output_names)), 0.0, 0.0)
+        if len(self.model_output_names) != len(state_noise):
             raise ValueError('Number of model_outputs does not align with number of noise values!')
         self.state_noise = state_noise
 

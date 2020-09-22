@@ -171,15 +171,23 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
             # check if the dimensionality is less then 4 dimension
             logger.info('Plotting of GP landscape not possible for then 3 dimensions')
             return figure
-        self.optimizer.plot(1000, figure=figure)
+        self.optimizer.plot(1000, figure=figure, ms = 1, color = 'k')
 
         # mark best performance in green
         y, x = self.history.df.loc[self.best_episode, ['J', 'Params']]
 
+        y0, x0 = self.history.df.loc[0, ['J', 'Params']]
+        #ax.scatter([x0], [y0], s=20, marker='x', linewidths=3, color='m')
+
         if len(x) == 1:
-            ax.scatter([x], [y], s=20 * 10, marker='x', linewidths=3, color='g')
+            ax.scatter([x], [y], s=20, marker='x', linewidths=3, color='g')
+            ax.scatter([x0], [y0], s=20, marker='x', linewidths=3, color='m')
+            # ax.scatter([x], [y], s=20 * 10, marker='x', linewidths=3, color='g')
+
+
         elif len(x) == 2:
             ax.plot(x[0], x[1], 'og')
+            ax.plot(x0[0], x0[1], 'om')
         else:
             logger.warning('Choose appropriate number of control parameters')
 
@@ -219,7 +227,13 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
         if np.isnan(self.episode_return):
             # toDo: set reward to -inf and stop agent?
             # warning mit logger
-            print('Reward exceeded bad bound! Continue?(Type Y/N)')
+
+            logger.warning('UNSAFE! Limit exceeded, epsiode abort, give a reward of {} times the '
+                           'initial reward'.format(self.abort_reward))
+            # set r to doubled (negative!) initial reward
+            self._performance = self.abort_reward
+
+            """print('Reward exceeded bad bound! Continue?(Type Y/N)')
             variable = input('Does this spike make sence?! (Type Y/N): ')
             if variable == 'N':
                 self.episode_return = -300
@@ -231,6 +245,7 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
             else:
                 print('Choose appropiate answer! Programm will run with J =1')
                 self.episode_return = -300
+            """
 
         if self._performance is None:
             # Performance = inverse average return (return/iterations)^⁻1 normalized by initial performance

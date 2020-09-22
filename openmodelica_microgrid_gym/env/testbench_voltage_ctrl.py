@@ -19,7 +19,7 @@ class TestbenchEnvVoltage(gym.Env):
 
     def __init__(self, host: str = '131.234.172.139', username: str = 'root', password: str = 'omg',
                  DT: float = 1/20000, executable_script_name: str = 'my_first_hps' ,num_steps: int = 1000,
-                 kP: float = 0.01, kI: float = 5.0, kPV: float = 0.01, kIV: float = 5.0,  ref: float = 10.0, ref2: float =12, f_nom: float = 50.0, i_limit: float = 30,
+                 kP: float = 0.191, kI: float = 33.3, kPV: float = 0.01, kIV: float = 5.0,  ref: float = 10.0, ref2: float =12, f_nom: float = 50.0, i_limit: float = 30,
                  i_nominal: float = 20, v_nominal: float = 20):
 
         self.ssh = paramiko.SSHClient()
@@ -53,8 +53,8 @@ class TestbenchEnvVoltage(gym.Env):
 
             temp = line.decode("utf-8").split(",")
 
-            if len(temp) == 29:
-                temp.pop(-1)  # Drop the last item
+            if len(temp) == 31:
+                #temp.pop(-1)  # Drop the last item
 
                 floats = [float(i) for i in temp]
                 # print(floats)
@@ -95,10 +95,11 @@ class TestbenchEnvVoltage(gym.Env):
 
         return -error.squeeze()
 
-    def reset(self, kP, kI, kPv, kIv):
+    #def reset(self, kP, kI, kPv, kIv):
+    def reset(self, kPv, kIv):
         # toDo: ssh connection not open every episode!
-        self.kP = kP
-        self.kI = kI
+        #self.kP = kP
+        #self.kI = kI
         self.kPV = kPv
         self.kIV = kIv
 
@@ -187,16 +188,28 @@ class TestbenchEnvVoltage(gym.Env):
         I_D = self.data[:, 6]
         I_Q = self.data[:, 7]
         I_0 = self.data[:, 8]
-        Ph = self.data[:, 9]
-        SP_A = self.data[:, 10]
-        SP_B = self.data[:, 11]
-        SP_C = self.data[:, 12]
-        m_A = self.data[:, 13]
-        m_B = self.data[:, 14]
-        m_C = self.data[:, 15]
-        m_D = self.data[:, 16]
-        m_Q = self.data[:, 17]
-        m_0 = self.data[:, 18]
+        SP_A = self.data[:, 9]
+        SP_B = self.data[:, 10]
+        SP_C = self.data[:, 11]
+        m_A = self.data[:, 12]
+        m_B = self.data[:, 13]
+        m_C = self.data[:, 14]
+        m_D = self.data[:, 15]
+        m_Q = self.data[:, 16]
+        m_0 = self.data[:, 17]
+        ICont_Out_D = self.data[:, 18]
+        ICont_Out_Q = self.data[:, 19]
+        ICont_Out_0 = self.data[:, 20]
+        UCont_Out_D = self.data[:, 21]
+        UCont_Out_Q = self.data[:, 22]
+        UCont_Out_0 = self.data[:, 23]
+        ISP_A = self.data[:, 24]
+        ISP_B = self.data[:, 25]
+        ISP_C = self.data[:, 26]
+        V_D = self.data[:, 27]
+        V_Q = self.data[:, 28]
+        V_0 = self.data[:, 29]
+        Ph = self.data[:, 30]
 
         # store measurment to dataframe
         df = pd.DataFrame({'V_A': self.data[:, 0],

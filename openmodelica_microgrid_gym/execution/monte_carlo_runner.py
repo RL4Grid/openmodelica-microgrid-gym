@@ -73,6 +73,11 @@ class MonteCarloRunner:
                     if done:
                         self.agent.observe(r,
                                            False)  # take the last reward into account, too, but without update_params
+
+                        #v_max = np.abs(self.env.history.df[[f'lc.capacitor{j}.v' for j in '123']].to_numpy()).max()
+                        #if v_max > 25:
+                        #    asd = self.agent.episode_return + v_max
+
                         self.agent.performance = self.agent._iterations / (
                                     self.agent.episode_return * self.agent.initial_performance)
                         if m == 0 and i == 0:
@@ -95,12 +100,12 @@ class MonteCarloRunner:
                 _, env_fig = self.env.close()
 
                 # vor break?
-                if (m == 0 and i == 0) or self.agent.has_improved:
+                if (m == 0 and i == 0):# or self.agent.has_improved:
                     self.run_data['best_env_plt'] = env_fig
                     self.run_data['best_episode_idx'] = i
                     self.agent.last_best_performance = self.agent.performance
 
-                if (m == 0 and i == 0) or self.agent.has_worsened:
+                if (m == 0 and i == 0):# or self.agent.has_worsened:
                     self.run_data['worst_env_plt'] = env_fig
                     self.run_data['worst_episode_idx'] = i
                     self.agent.last_worst_performance = self.agent.performance

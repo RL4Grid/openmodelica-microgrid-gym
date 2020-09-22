@@ -288,7 +288,7 @@ if __name__ == '__main__':
                                                  # inverter1=['inductor1.i', 'inductor2.i', 'inductor3.i']
                                                  ),
                                history=FullHistory(),
-                                measurement_noise = i_noise
+                               measurement_noise = i_noise
 
                                )
 
