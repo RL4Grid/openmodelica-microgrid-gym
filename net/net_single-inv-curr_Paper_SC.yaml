@@ -7,7 +7,7 @@ components:
     id: inverter1
     #i_nom: 20
     #i_lim: 30
-    v_DC: 650
+    v_DC: 60
     cls: MasterInverterCurrentSourcing
     in:
       u: [i1p1, i1p2, i1p3]    # names of the inputs

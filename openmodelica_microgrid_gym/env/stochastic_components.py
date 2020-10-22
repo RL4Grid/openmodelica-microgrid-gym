@@ -38,9 +38,9 @@ class Load:
             raise ValueError('Choose between single or three phase!')
 
         if len(self.gains) == 1:
-            return 1 * self.gains[0] if (t < .05 + 0.022  or t > 0.1 + 0.022) else 0.35 * self.gains[0]
+            return 1 * self.gains[0] if (t < .05 + 0.022  or t > 0.1 + 0.022) else 0.6665 * self.gains[0]
         else:
-            return 1 * self.gains[n] if (t < .05 + 0.022  or t > 0.1 + 0.022) else 0.35 * self.gains[n]
+            return 1 * self.gains[n] if (t < .05 + 0.022  or t > 0.1 + 0.022) else 0.6665 * self.gains[n]
 
     def give_value(self, t, n: int):
         """

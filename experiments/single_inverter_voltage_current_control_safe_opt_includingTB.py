@@ -65,9 +65,9 @@ os.makedirs(save_folder, exist_ok=True)
 
 L_filt = 2.3e-3  # / H
 R_filt = 400e-3  # 170e-3  # 585e-3  # / Ohm
-C_filt = 13.6e-6*10   # / F
+C_filt = 48e-6#13.6e-6   # / F
 #C_filt = 10e-6   # / F
-R = 7.15  # 170e-3  # 585e-3  # / Ohm
+R = 20#7.15  # 170e-3  # 585e-3  # / Ohm
 
 tau_plant = L_filt/R_filt
 gain_plant = 1/R_filt
@@ -96,27 +96,37 @@ C = np.array([[1, 0, 0],
 #
 # L_iL_io = 28.5158   #-1.6880e+03
 # L_vc_io = -557.6191  #-148.1438
-#
+
 # for C = 13.6e-6*10:!!!!
-L_iL_iL = 6e3       #4.0133e+03
-L_vc_iL = -434.7826   #-316.2432     # influence from delta_y_vc onto xdot = iL
-
-L_iL_vc = 7.3529  #7.2952e+04
-L_vc_vc = 1e4       #6.9871e+03
-
-L_iL_io = 4.4165e-13   #-1.6880e+03
-L_vc_io = -5576#-557.6191  #-148.1438
-
-
-# for C = 10e-6:!!!!
 # L_iL_iL = 6e3       #4.0133e+03
-# L_vc_iL = -433.3958   #-316.2432     # influence from delta_y_vc onto xdot = iL
+# L_vc_iL = -434.7826   #-316.2432     # influence from delta_y_vc onto xdot = iL
 #
-# L_iL_vc = 9.9615e4  #7.2952e+04
+# L_iL_vc = 7.3529  #7.2952e+04
 # L_vc_vc = 1e4       #6.9871e+03
 #
-# L_iL_io = 8.8765   #-1.6880e+03
-# L_vc_io = -410#-557.6191  #-148.1438
+# L_iL_io = 4.4165e-13   #-1.6880e+03
+# L_vc_io = -5576#-557.6191  #-148.1438
+
+
+# # for C = 48e-6:!!!!
+L_iL_iL = 6e3       #4.0133e+03
+L_vc_iL = -435.5632   #-316.2432     # influence from delta_y_vc onto xdot = iL
+
+L_iL_vc = 2.0833e4  #7.2952e+04
+L_vc_vc = 1e4       #6.9871e+03
+
+L_iL_io = -2.3581   #-1.6880e+03
+L_vc_io = -1.968e3
+
+# # for C = 80e-6:!!!!
+# L_iL_iL = 6e3       #4.0133e+03
+# L_vc_iL = -434.7826   #-316.2432     # influence from delta_y_vc onto xdot = iL
+#
+# L_iL_vc = 1.25e4  #7.2952e+04
+# L_vc_vc = 1e4       #6.9871e+03
+#
+# L_iL_io = -1.75e-12   #-1.6880e+03
+# L_vc_io = -3280
 
 L = np.array([[L_iL_iL, L_vc_iL],
               [L_iL_vc, L_vc_vc],
@@ -221,7 +231,7 @@ if __name__ == '__main__':
 
     # Vdc = 650 V
     mutable_params = dict(voltageP=MutableFloat(0.125), voltageI=MutableFloat(70.871))
-    #mutable_params = dict(voltageP=MutableFloat(1), voltageI=MutableFloat(1000))
+    mutable_params = dict(voltageP=MutableFloat(0.02), voltageI=MutableFloat(7))
 
     voltage_dqp_iparams = PI_params(kP=mutable_params['voltageP'], kI=mutable_params['voltageI'],
                                     limits=(-iLimit, iLimit))
@@ -230,7 +240,7 @@ if __name__ == '__main__':
     #current_dqp_iparams = PI_params(kP=0.2, kI=33.3, limits=(-1, 1))     # Best set from paper III-D
 
     # Vdc = 650 V
-    current_dqp_iparams = PI_params(kP=0.01, kI=3, limits=(-1, 1))     # Best set from paper III-D
+    current_dqp_iparams = PI_params(kP=0.017, kI=3, limits=(-1, 1))     # Best set from paper III-D
 
     # Define the droop parameters for the inverter of the active power Watt/Hz (DroopGain), delta_t (0.005) used for the
     # filter and the nominal frequency
