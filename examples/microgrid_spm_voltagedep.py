@@ -76,7 +76,7 @@ def env_model_ode(t, y):#, arg):
     J= [2, 2, 2]
 
     df = (p-droop_linear*(freqs-nomFreq))/(J*freqs)
-    dv = (q - droop_linear * (voltages - nomVolt)) / (J * voltages)
+    dv = (q - q_droop_linear * (voltages - nomVolt)) / (J * voltages)
     dtheta = freqs * 2 * np.pi
 
     # d theta_k / dt = f_k
@@ -85,7 +85,7 @@ def env_model_ode(t, y):#, arg):
     # @ DANIEL: voltage or dv (calculated 4 lines above) as the return? I would have said dv,
     # I would take dv, but this causes calculation issues
  #   return np.array([dtheta[0], dtheta[1], dtheta[2], df[0], df[1], df[2], dv[0], dv[1], dv[2]])
-    return np.array([dtheta[0], dtheta[1], dtheta[2], df[0], df[1], df[2], voltages[0], voltages[1], voltages[2]])
+    return np.array([dtheta[0], dtheta[1], dtheta[2], df[0], df[1], df[2], dv[0], dv[1], dv[2]])
 
 if __name__ == '__main__':
 
