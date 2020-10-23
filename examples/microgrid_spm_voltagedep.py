@@ -21,9 +21,9 @@ nomVoltPeak = nomVolt * 1.414  # nominal grid voltage / V
 
 omega = 2*np.pi*nomFreq
 
-R_load = 100
-L_load = 0.001
-L_lv_line_10km = 0.083*10/(omega)      # nach MG book chapter 5, table 5.1
+R_load = 10000
+L_load = 0.01
+L_lv_line_10km = 0.00083*10     # nach MG book chapter 5, table 5.1
 
 B_L_lv_line_10km = -1/(omega*L_lv_line_10km)
 
@@ -42,9 +42,9 @@ G = np.array([[0, 0, 0],
                    [0, 0, G_RL_load]])
 
 P_offset = np.array([0, 0, 0])
-Q_offset = np.array([0, 0, 0])
-droop_linear = np.array([10000, 1000, 0])     # W/Hz
-q_droop_linear = np.array([1000, 100, 0])
+Q_offset = np.array([0, 0, 1000])
+droop_linear = np.array([7688, 1000, 0])     # W/Hz
+q_droop_linear = np.array([120000, 30000, 0])
 
 
 def env_model_ode(t, y):#, arg):
@@ -74,9 +74,9 @@ def env_model_ode(t, y):#, arg):
     q = q+Q_offset
 
     J= [2, 2, 2]
-
+    J_voltage = [2, 2, 2]
     df = (p-droop_linear*(freqs-nomFreq))/(J*freqs)
-    dv = (q - q_droop_linear * (voltages - nomVolt)) / (J * voltages)
+    dv = (q - q_droop_linear * (voltages - nomVolt)) / (J_voltage * voltages)
     dtheta = freqs * 2 * np.pi
 
     # d theta_k / dt = f_k
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     f = nomFreq
     voltage1_0 = 230
     voltage2_0 = 230
-    voltage3_0 = 200
+    voltage3_0 = 20
 
     theta1_0 = 0
     theta2_0 = 0
