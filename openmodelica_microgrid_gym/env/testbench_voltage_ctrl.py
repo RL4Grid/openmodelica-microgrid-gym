@@ -19,7 +19,7 @@ class TestbenchEnvVoltage(gym.Env):
 
     def __init__(self, host: str = '131.234.172.139', username: str = 'root', password: str = 'omg',
                  DT: float = 1/20000, executable_script_name: str = 'my_first_hps' ,num_steps: int = 1000,
-                 kP: float = 0.191, kI: float = 33.3, kPV: float = 0.01, kIV: float = 5.0,  ref: float = 10.0, ref2: float =12, f_nom: float = 50.0, i_limit: float = 30,
+                 kP: float = 0.052346, kI: float = 15.4072 , kPV: float = 0.018619 , kIV: float = 10.0,  ref: float = 10.0, ref2: float =12, f_nom: float = 50.0, i_limit: float = 30,
                  i_nominal: float = 20, v_nominal: float = 20):
 
         self.ssh = paramiko.SSHClient()
@@ -131,8 +131,8 @@ class TestbenchEnvVoltage(gym.Env):
         #str_command = './{} {} {} {} {} {}'.format(self.executable_script_name, self.max_episode_steps, self.kP, self.kI,
         #                                           self.i_ref, self.f_nom)
 
-        str_command = './{} {} {} {} {} {} {} {} {} {}'.format(self.executable_script_name, self.max_episode_steps, np.int(self.max_episode_steps/3),
-                                                               np.int(self.max_episode_steps *2/ 3),
+        str_command = './{} {} {} {} {} {} {} {} {} {}'.format(self.executable_script_name, self.max_episode_steps, np.int(self.max_episode_steps/3-220),
+                                                               np.int(self.max_episode_steps *2/ 3-520),
                                                       self.kP, self.kI, self.kPV, self.kIV,
                                                    self.v_nominal,   self.f_nom)
 
@@ -254,7 +254,7 @@ class TestbenchEnvVoltage(gym.Env):
         plt.show()
         #time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         # fig.savefig('hardwareTest_plt/{}_abcInductor_currents' + time + '.pdf'.format(J))
-        fig.savefig('Paper_meas_voltage_both/J_{}_abcvoltage.pdf'.format(J))
+        #fig.savefig('Paper_meas_voltage_both/J_{}_abcvoltage.pdf'.format(J))
 
 
 
@@ -273,7 +273,7 @@ class TestbenchEnvVoltage(gym.Env):
         plt.show()
         #time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         #fig.savefig('hardwareTest_plt/{}_abcInductor_currents' + time + '.pdf'.format(J))
-        fig.savefig('Paper_meas_voltage_both/J_{}_abcInductor_currents.pdf'.format(J))
+        #fig.savefig('Paper_meas_voltage_both/J_{}_abcInductor_currents.pdf'.format(J))
         """
 
         fig = plt.figure()

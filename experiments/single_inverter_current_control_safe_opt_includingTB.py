@@ -87,10 +87,10 @@ np.random.seed(0)
 net = Network.load('../net/net_single-inv-curr_Paper_SC.yaml')
 delta_t = 1e-4  # simulation time step size / s
 max_episode_steps = 1000  # number of simulation steps per episode
-num_episodes = 1 # number of simulation episodes (i.e. SafeOpt iterations)
+num_episodes = 20 # number of simulation episodes (i.e. SafeOpt iterations)
 n_MC = 1 # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
 # distribution to represent real world more accurate
-v_DC = 60  # DC-link voltage / V; will be set as model parameter in the FMU
+v_DC = 650/2  # DC-link voltage / V; will be set as model parameter in the FMU
 nomFreq = 50  # nominal grid frequency / Hz
 nomVoltPeak = 20#230 * 1.414  # nominal grid voltage / V
 iLimit = 30  # inverter current limit / A
@@ -193,12 +193,13 @@ if __name__ == '__main__':
             #lengthscale = [0.016, 40.]
 
             #conservative
-            lengthscale = [0.01, 20.]
-            bounds = [(0.0, 0.1), (0, 250)]
-            bounds = [(0.0, 0.04), (0, 100)]
+            #lengthscale = [0.01, 20.]
+            #bounds = [(0.0, 0.1), (0, 250)]
+            #bounds = [(0.0, 0.04), (0, 100)]
 
-            #bounds = [(0.0, 0.6), (0, 1000)]
-            #lengthscale = [0.15, 300.]
+            # 650 V
+            bounds = [(0.0, 0.08), (0, 180)]
+            lengthscale = [0.015, 50.]
 
             #lengthscale = [0.1, 200.]  mess
 
@@ -249,11 +250,13 @@ if __name__ == '__main__':
             #mutable_params = dict(currentP=MutableFloat(Kp_init), currentI=MutableFloat(Ki_init))
             #mutable_params = dict(currentP=MutableFloat(0.38714), currentI=MutableFloat(52.5))
             #mutable_params = dict(currentP=MutableFloat(0.2), currentI=MutableFloat(33))
-            mutable_params = dict(currentP=MutableFloat(0.2), currentI=MutableFloat(900))
+
 
             # For vDC = 650 V
-            #mutable_params = dict(currentP=MutableFloat(0.017), currentI=MutableFloat(3))
-            #mutable_params = dict(currentP=MutableFloat(0.03), currentI=MutableFloat(10))
+            mutable_params = dict(currentP=MutableFloat(0.037), currentI=MutableFloat(10.9))
+
+            #mutable_params = dict(currentP=MutableFloat(0.037), currentI=MutableFloat(170))
+            #mutable_params = dict(currentP=MutableFloat(0.07), currentI=MutableFloat(11))
             current_dqp_iparams = PI_params(kP=mutable_params['currentP'], kI=mutable_params['currentI'],
                                             limits=(-1, 1))
 
