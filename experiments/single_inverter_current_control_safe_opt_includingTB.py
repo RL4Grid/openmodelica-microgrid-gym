@@ -57,7 +57,7 @@ from openmodelica_microgrid_gym.util import dq0_to_abc, nested_map, FullHistory
 # - Ki: 1D example: Only the integral gain Ki of the PI controller is adjusted
 # - Kpi: 2D example: Kp and Ki are adjusted simultaneously
 
-adjust = 'Kpi'
+adjust = 'Ki'
 
 # Check if really only one simulation scenario was selected
 if adjust not in {'Kp', 'Ki', 'Kpi'}:
@@ -73,7 +73,7 @@ safe_results = False
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'CC_V650')
+save_folder = os.path.join(current_directory, r'Ki_CC_V650_2')
 #save_folder = os.path.join(current_directory, r'Paper_CC_meas')
 #save_folder = os.path.join(current_directory, r'NotTurn21Back')
 os.makedirs(save_folder, exist_ok=True)
@@ -87,7 +87,7 @@ np.random.seed(0)
 net = Network.load('../net/net_single-inv-curr_Paper_SC.yaml')
 delta_t = 1e-4  # simulation time step size / s
 max_episode_steps = 1000  # number of simulation steps per episode
-num_episodes = 20 # number of simulation episodes (i.e. SafeOpt iterations)
+num_episodes = 15 # number of simulation episodes (i.e. SafeOpt iterations)
 n_MC = 1 # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
 # distribution to represent real world more accurate
 v_DC = 650/2  # DC-link voltage / V; will be set as model parameter in the FMU
@@ -179,8 +179,8 @@ if __name__ == '__main__':
 
         # For 1D example, if Ki should be adjusted
         if adjust == 'Ki':
-            bounds = [(0, 250)]  # bounds on the input variable Ki
-            lengthscale = [100.]  # length scale for the parameter variation [Ki] for the GP
+            bounds = [(0, 50)]  # bounds on the input variable Ki
+            lengthscale = [50.]  # length scale for the parameter variation [Ki] for the GP
 
         # For 2D example, choose Kp and Ki as mutable parameters (below) and define bounds and lengthscale for both of them
         if adjust == 'Kpi':
@@ -205,9 +205,9 @@ if __name__ == '__main__':
 
             #lengthscale = [0.12, 100.]
 
-            df_len = pd.DataFrame({'lengthscale': lengthscale,
-                                   'bounds': bounds,
-                                   'balanced_load': balanced_load})
+        df_len = pd.DataFrame({'lengthscale': lengthscale,
+                               'bounds': bounds,
+                               'balanced_load': balanced_load})
 
         # The performance should not drop below the safe threshold, which is defined by the factor safe_threshold times
         # the initial performance: safe_threshold = 0.8 means. Performance measurement for optimization are seen as
@@ -242,8 +242,11 @@ if __name__ == '__main__':
 
         # For 1D example, if Ki should be adjusted
         elif adjust == 'Ki':
-            mutable_params = dict(currentI=MutableFloat(10))
-            current_dqp_iparams = PI_params(kP=0.01, kI=mutable_params['currentI'], limits=(-1, 1))
+            #mutable_params = dict(currentI=MutableFloat(10))
+            #current_dqp_iparams = PI_params(kP=0.01, kI=mutable_params['currentI'], limits=(-1, 1))
+            #650 V
+            mutable_params = dict(currentI=MutableFloat(0))
+            current_dqp_iparams = PI_params(kP=0.004, kI=mutable_params['currentI'], limits=(-1, 1))
 
         # For 2D example, choose Kp and Ki as mutable parameters
         elif adjust == 'Kpi':
