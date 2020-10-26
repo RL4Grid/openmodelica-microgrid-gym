@@ -1,3 +1,5 @@
+from contextlib import redirect_stdout, redirect_stderr
+
 import numpy as np
 from typing import Dict, Any
 from tqdm import tqdm
@@ -55,11 +57,9 @@ class MonteCarloRunner:
         agent_fig = None
 
         for i in tqdm(range(n_episodes), desc='episodes', unit='epoch'):
-
             done, r = False, None
             np.random.seed(0)
-            for m in tqdm(range(n_mc), desc='episodes', unit='epoch'):
-
+            for m in tqdm(range(n_mc), desc='monte_carlo_run', unit='epoch', leave=False):
                 prepare_mc_experiment()
 
                 obs = self.env.reset()
@@ -74,12 +74,12 @@ class MonteCarloRunner:
                         self.agent.observe(r,
                                            False)  # take the last reward into account, too, but without update_params
 
-                        #v_max = np.abs(self.env.history.df[[f'lc.capacitor{j}.v' for j in '123']].to_numpy()).max()
-                        #if v_max > 25:
+                        # v_max = np.abs(self.env.history.df[[f'lc.capacitor{j}.v' for j in '123']].to_numpy()).max()
+                        # if v_max > 25:
                         #    asd = self.agent.episode_return + v_max
 
                         self.agent.performance = self.agent._iterations / (
-                                    self.agent.episode_return * self.agent.initial_performance)
+                                self.agent.episode_return * self.agent.initial_performance)
                         if m == 0 and i == 0:
                             self.agent.initial_performance = self.agent.performance
                             self.agent.performance = 1  # instead of perf/initial_perf
@@ -100,12 +100,12 @@ class MonteCarloRunner:
                 _, env_fig = self.env.close()
 
                 # vor break?
-                if (m == 0 and i == 0):# or self.agent.has_improved:
+                if (m == 0 and i == 0):  # or self.agent.has_improved:
                     self.run_data['best_env_plt'] = env_fig
                     self.run_data['best_episode_idx'] = i
                     self.agent.last_best_performance = self.agent.performance
 
-                if (m == 0 and i == 0):# or self.agent.has_worsened:
+                if (m == 0 and i == 0):  # or self.agent.has_worsened:
                     self.run_data['worst_env_plt'] = env_fig
                     self.run_data['worst_episode_idx'] = i
                     self.agent.last_worst_performance = self.agent.performance
@@ -120,6 +120,8 @@ class MonteCarloRunner:
 
             self.agent.performance = np.mean(performance_mc)
             self.agent.update_params()
+            if self.agent.unsafe:
+                break
 
             if visualise:
                 agent_fig = self.agent.render()

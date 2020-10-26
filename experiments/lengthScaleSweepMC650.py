@@ -30,7 +30,7 @@ params = {'backend': 'ps',
           'legend.fontsize': 8,  # was 10
           'xtick.labelsize': 8,
           'ytick.labelsize': 8,
-          #'text.usetex': True,
+          # 'text.usetex': True,
           # 'figure.figsize': [3.39, 2.5],
           'figure.figsize': [3.9, 3.1],
           'font.family': 'serif',
@@ -80,8 +80,8 @@ np.random.seed(0)
 # Simulation definitions
 net = Network.load('../net/net_single-inv-curr_Paper_SC.yaml')
 delta_t = 1e-4  # simulation time step size / s
-max_episode_steps = 10  # number of simulation steps per episode
-num_episodes = 1000  # number of simulation episodes (i.e. SafeOpt iterations)
+max_episode_steps = 1000  # number of simulation steps per episode
+num_episodes = 100  # number of simulation episodes (i.e. SafeOpt iterations)
 n_MC = 10  # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
 # distribution to represent real world more accurate
 v_DC = 650 / 2  # DC-link voltage / V; will be set as model parameter in the FMU
@@ -417,14 +417,15 @@ def run_experiment(len_kp, len_ki):
                        )
 
         runner = MonteCarloRunner(agent, env)
-
         runner.run(num_episodes, n_mc=n_MC, visualise=True, prepare_mc_experiment=reset_loads)
+
+        print(f'>>>>>run({len_kp}, {len_ki}) {agent.unsafe}')
 
         return agent.unsafe
 
 
 if __name__ == '__main__':
-    with Pool(6) as p:
+    with Pool(10) as p:
         is_unsafe = p.starmap(run_experiment, product(lengthscale_vec_kP, lengthscale_vec_kI))
 
     unsafe_vec = np.empty([len(lengthscale_vec_kP), len(lengthscale_vec_kI)])
@@ -433,11 +434,7 @@ if __name__ == '__main__':
                                                   is_unsafe):
         unsafe_vec[kk, ii] = int(unsafe)
 
-    df = pd.DataFrame([[unsafe_vec],
-                       [lengthscale_vec_kP],
-                       [lengthscale_vec_kI]])  # ,
-    # 'lengthscale_vec_kP': lengthscale_vec_kP,
-    # 'lengthscale_vec_kI': lengthscale_vec_kI})
+    df = pd.DataFrame([[unsafe_vec], [lengthscale_vec_kP], [lengthscale_vec_kI]])
     df.to_pickle(save_folder + '/Unsafe_matrix')
 
     # agent.unsafe = False
