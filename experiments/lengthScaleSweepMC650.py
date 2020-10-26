@@ -7,7 +7,9 @@
 import logging
 import os
 from functools import partial
-#from time import strftime, gmtime
+# from time import strftime, gmtime
+from itertools import product
+from multiprocessing import Pool
 from operator import itemgetter
 from typing import List
 
@@ -22,34 +24,26 @@ import matplotlib
 from openmodelica_microgrid_gym.net import Network
 
 params = {'backend': 'ps',
-          'text.latex.preamble': [r'\usepackage{gensymb}'
-                                  r'\usepackage{amsmath,amssymb,mathtools}'
-                                  r'\newcommand{\mlutil}{\ensuremath{\operatorname{ml-util}}}'
-                                  r'\newcommand{\mlacc}{\ensuremath{\operatorname{ml-acc}}}'],
           'axes.labelsize': 8,  # fontsize for x and y labels (was 10)
           'axes.titlesize': 8,
           'font.size': 8,  # was 10
           'legend.fontsize': 8,  # was 10
           'xtick.labelsize': 8,
           'ytick.labelsize': 8,
-          'text.usetex': True,
-          #'figure.figsize': [3.39, 2.5],
+          #'text.usetex': True,
+          # 'figure.figsize': [3.39, 2.5],
           'figure.figsize': [3.9, 3.1],
           'font.family': 'serif',
           'lines.linewidth': 1
           }
 matplotlib.rcParams.update(params)
 
-
-from openmodelica_microgrid_gym import Agent
 from openmodelica_microgrid_gym.agents import SafeOptAgent
 from openmodelica_microgrid_gym.agents.util import MutableFloat, MutableParams
-from openmodelica_microgrid_gym.aux_ctl import PI_params, DroopParams, MultiPhaseDQCurrentSourcingController
+from openmodelica_microgrid_gym.aux_ctl import PI_params, MultiPhaseDQCurrentSourcingController
 from openmodelica_microgrid_gym.env import PlotTmpl
-from openmodelica_microgrid_gym.env.physical_testbench import TestbenchEnv
 from openmodelica_microgrid_gym.env.stochastic_components import Load, Noise
 from openmodelica_microgrid_gym.execution.monte_carlo_runner import MonteCarloRunner
-from openmodelica_microgrid_gym.execution.runner_hardware import RunnerHardware
 from openmodelica_microgrid_gym.util import dq0_to_abc, nested_map, FullHistory
 
 # Choose which controller parameters should be adjusted by SafeOpt.
@@ -74,26 +68,25 @@ safe_results = True
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
 save_folder = os.path.join(current_directory, r'len_sweep_cc_650')
-#save_folder = os.path.join(current_directory, r'Paper_CC_meas')
-#save_folder = os.path.join(current_directory, r'NotTurn21Back')
+# save_folder = os.path.join(current_directory, r'Paper_CC_meas')
+# save_folder = os.path.join(current_directory, r'NotTurn21Back')
 os.makedirs(save_folder, exist_ok=True)
 
 lengthscale_vec_kP = np.linspace(0.005, 0.05, 5)
 lengthscale_vec_kI = np.linspace(10, 100, 6)
-unsafe_vec = np.zeros([len(lengthscale_vec_kP), len(lengthscale_vec_kI)])
 
 np.random.seed(0)
 
 # Simulation definitions
 net = Network.load('../net/net_single-inv-curr_Paper_SC.yaml')
 delta_t = 1e-4  # simulation time step size / s
-max_episode_steps = 1000  # number of simulation steps per episode
-num_episodes = 100 # number of simulation episodes (i.e. SafeOpt iterations)
-n_MC = 10 # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
+max_episode_steps = 10  # number of simulation steps per episode
+num_episodes = 1000  # number of simulation episodes (i.e. SafeOpt iterations)
+n_MC = 10  # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
 # distribution to represent real world more accurate
-v_DC = 650/2  # DC-link voltage / V; will be set as model parameter in the FMU
+v_DC = 650 / 2  # DC-link voltage / V; will be set as model parameter in the FMU
 nomFreq = 50  # nominal grid frequency / Hz
-nomVoltPeak = 20#230 * 1.414  # nominal grid voltage / V
+nomVoltPeak = 20  # 230 * 1.414  # nominal grid voltage / V
 iLimit = 30  # inverter current limit / A
 iNominal = 20  # nominal inverter current / A
 mu = 2  # factor for barrier function (see below)
@@ -113,10 +106,11 @@ gain_plant = 1 / R
 # take inverter into account using s&h (exp(-s*delta_T/2))
 Tn = tau_plant  # Due to compensate
 Kp_init = tau_plant / (2 * delta_t * gain_plant * v_DC)
-Ki_init = 33 # Kp_init / Tn
+Ki_init = 33  # Kp_init / Tn
 
-#Kp_init = 0.2
-#Ki_init = 20
+
+# Kp_init = 0.2
+# Ki_init = 20
 
 # Kp_init = 0
 
@@ -156,11 +150,12 @@ class Reward:
         # (due to normalization the control error is often around zero -> compared to MSE metric, the MRE provides
         #  better, i.e. more significant,  gradients)
         # plus barrier penalty for violating the current constraint
-        error = (np.sum((np.abs((ISPabc_master - Iabc_master)) / iLimit) ** 0.5, axis=0) \
-                + -np.sum(mu * np.log(1 - np.maximum(np.abs(Iabc_master) - iNominal, 0) / (iLimit - iNominal)), axis=0)) \
-                / max_episode_steps
+        error = np.sum((np.abs((ISPabc_master - Iabc_master)) / iLimit) ** 0.5, axis=0) \
+                - np.sum(mu * np.log(1 - np.maximum(np.abs(Iabc_master) - iNominal, 0) / (iLimit - iNominal)), axis=0)
+        error /= max_episode_steps
 
         return -error.squeeze()
+
 
 def run_experiment(len_kp, len_ki):
     #####################################
@@ -259,13 +254,11 @@ def run_experiment(len_kp, len_ki):
                          dict(bounds=bounds, noise_var=noise_var, prior_mean=prior_mean,
                               safe_threshold=safe_threshold, explore_threshold=explore_threshold),
                          [ctrl],
-                         dict(master=[[f'lc.inductor{k}.i' for k in '123'],
-                                      i_ref_]),
+                         dict(master=[[f'lc.inductor{k}.i' for k in '123'], i_ref_]),
                          history=FullHistory()
                          )
 
     class PlotManager:
-
         def __init__(self, used_agent: SafeOptAgent, used_r_load: Load, used_l_load: Load, used_i_noise: Noise):
             self.agent = used_agent
             self.r_load = used_r_load
@@ -392,7 +385,6 @@ def run_experiment(len_kp, len_ki):
 
         env = gym.make('openmodelica_microgrid_gym:ModelicaEnv_test-v1',
                        reward_fun=Reward().rew_fun,
-                       # time_step=delta_t,
                        viz_cols=[
                            PlotTmpl([[f'lc.inductor{i}.i' for i in '123'], [f'master.SPI{i}' for i in 'abc']],
                                     callback=xylables,
@@ -432,32 +424,27 @@ def run_experiment(len_kp, len_ki):
 
 
 if __name__ == '__main__':
+    with Pool(6) as p:
+        is_unsafe = p.starmap(run_experiment, product(lengthscale_vec_kP, lengthscale_vec_kI))
 
-    for kk in range(len(lengthscale_vec_kP)):
+    unsafe_vec = np.empty([len(lengthscale_vec_kP), len(lengthscale_vec_kI)])
 
-        for ii in range(len(lengthscale_vec_kI)):
+    for ((kk, ls_kP), (ii, ls_IP)), unsafe in zip(product(enumerate(lengthscale_vec_kP), enumerate(lengthscale_vec_kI)),
+                                                  is_unsafe):
+        unsafe_vec[kk, ii] = int(unsafe)
 
-            agent_unsafe = run_experiment(lengthscale_vec_kP[kk], lengthscale_vec_kI[ii])
+    df = pd.DataFrame([[unsafe_vec],
+                       [lengthscale_vec_kP],
+                       [lengthscale_vec_kI]])  # ,
+    # 'lengthscale_vec_kP': lengthscale_vec_kP,
+    # 'lengthscale_vec_kI': lengthscale_vec_kI})
+    df.to_pickle(save_folder + '/Unsafe_matrix')
 
-            print(agent_unsafe)
+    # agent.unsafe = False
+    #####################################
+    # Performance results and parameters as well as plots are stored in folder pipi_signleInv
+    # agent.history.df.to_csv('len_search/result.csv')
+    # if safe_results:
+    #   env.history.df.to_pickle('Simulation')
 
-            if agent_unsafe:
-                unsafe_vec[kk, ii] = 1
-            else:
-                unsafe_vec[kk, ii] = 0
-
-            df = pd.DataFrame([[unsafe_vec],
-                               [lengthscale_vec_kP],
-                               [lengthscale_vec_kI]])  # ,
-            # 'lengthscale_vec_kP': lengthscale_vec_kP,
-            # 'lengthscale_vec_kI': lengthscale_vec_kI})
-            df.to_pickle(save_folder + '/Unsafe_matrix')
-
-            # agent.unsafe = False
-            #####################################
-            # Performance results and parameters as well as plots are stored in folder pipi_signleInv
-            # agent.history.df.to_csv('len_search/result.csv')
-            # if safe_results:
-            #   env.history.df.to_pickle('Simulation')
-
-            print(unsafe_vec)
+    print(unsafe_vec)
