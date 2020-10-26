@@ -69,7 +69,7 @@ balanced_load = False
 do_measurement = False
 
 # If True: Results are stored to directory mentioned in: REBASE to DEV after MERGE #60!!
-safe_results = False
+safe_results = True
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
@@ -98,7 +98,7 @@ iNominal = 20  # nominal inverter current / A
 mu = 2  # factor for barrier function (see below)
 DroopGain = 0.0  # virtual droop gain for active power / W/Hz
 QDroopGain = 0.0  # virtual droop gain for reactive power / VAR/V
-i_ref = np.array([10, 0, 0])  # exemplary set point i.e. id = 15, iq = 0, i0 = 0 / A
+i_ref = np.array([15, 0, 0])  # exemplary set point i.e. id = 15, iq = 0, i0 = 0 / A
 # i_noise = 0.11 # Current measurement noise detected from testbench
 # i_noise = np.array([[0.0, 0.0822], [0.0, 0.103], [0.0, 0.136]])
 
@@ -179,8 +179,8 @@ if __name__ == '__main__':
 
         # For 1D example, if Ki should be adjusted
         if adjust == 'Ki':
-            bounds = [(0, 50)]  # bounds on the input variable Ki
-            lengthscale = [50.]  # length scale for the parameter variation [Ki] for the GP
+            bounds = [(0, 30)]  # bounds on the input variable Ki
+            lengthscale = [7.5]  # length scale for the parameter variation [Ki] for the GP
 
         # For 2D example, choose Kp and Ki as mutable parameters (below) and define bounds and lengthscale for both of them
         if adjust == 'Kpi':
@@ -245,7 +245,7 @@ if __name__ == '__main__':
             #mutable_params = dict(currentI=MutableFloat(10))
             #current_dqp_iparams = PI_params(kP=0.01, kI=mutable_params['currentI'], limits=(-1, 1))
             #650 V
-            mutable_params = dict(currentI=MutableFloat(0))
+            mutable_params = dict(currentI=MutableFloat(3))
             current_dqp_iparams = PI_params(kP=0.004, kI=mutable_params['currentI'], limits=(-1, 1))
 
         # For 2D example, choose Kp and Ki as mutable parameters
@@ -420,10 +420,10 @@ if __name__ == '__main__':
             def ugly_foo(t):
 
                 if t >= .05:
-                    i_ref[:] = np.array([15,0,0])
+                    i_ref[:] = np.array([20,0,0])
                 else:
 
-                    i_ref[:] = np.array([10,0,0])
+                    i_ref[:] = np.array([15,0,0])
                 return partial(l_load.give_value, n=2)(t)
 
             env = gym.make('openmodelica_microgrid_gym:ModelicaEnv_test-v1',
