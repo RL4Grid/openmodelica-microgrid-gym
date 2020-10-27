@@ -6,12 +6,16 @@
 
 import logging
 import os
+import re
+from distutils.util import strtobool
 from functools import partial
 # from time import strftime, gmtime
 from itertools import product
 from multiprocessing import Pool
 from operator import itemgetter
+from os.path import isfile
 from typing import List
+import seaborn as sns
 
 import GPy
 import gym
@@ -72,8 +76,8 @@ save_folder = os.path.join(current_directory, r'len_sweep_cc_650')
 # save_folder = os.path.join(current_directory, r'NotTurn21Back')
 os.makedirs(save_folder, exist_ok=True)
 
-lengthscale_vec_kP = np.linspace(0.005, 0.05, 5)
-lengthscale_vec_kI = np.linspace(10, 100, 6)
+lengthscale_vec_kP = 0.0005 * np.logspace(.75, 2.5, 8)
+lengthscale_vec_kI = np.logspace(.8, 2.2, 8)
 
 np.random.seed(0)
 
@@ -157,7 +161,26 @@ class Reward:
         return -error.squeeze()
 
 
+def memoize(func):
+    def wrapper(*args, **kwargs):
+        len_kp, len_ki = args
+        if not isfile(f'{save_folder}/{len_kp},{len_ki}.txt'):
+            result = func(len_kp, len_ki)
+            with open(f'{save_folder}/{len_kp},{len_ki}.txt', 'w')as f:
+                print(f'({len_kp}, {len_ki}) {result}', file=f)
+            return result
+        with open(f'{save_folder}/{len_kp},{len_ki}.txt', 'r')as f:
+            return bool(re.match(r'.*?\(.*?\) (\w*)', f.read()))
+
+    return wrapper
+
+
+# @memoize
 def run_experiment(len_kp, len_ki):
+    if isfile(f'{save_folder}/{len_kp:.4f},{len_ki:.4f}.txt'):
+        with open(f'{save_folder}/{len_kp:.4f},{len_ki:.4f}.txt', 'r')as f:
+            return strtobool(f.read().strip())
+
     #####################################
     # Definitions for the GP
     prior_mean = 0  # 2  # mean factor of the GP prior mean which is multiplied with the first performance of the initial set
@@ -165,33 +188,16 @@ def run_experiment(len_kp, len_ki):
     prior_var = 2  # prior variance of the GP
 
     bounds = None
-    lengthscale = None
-    if adjust == 'Kp':
-        bounds = [(0, 10)]  # bounds on the input variable Kp
-        lengthscale = [.75]  # length scale for the parameter variation [Kp] for the GP
+    lengthscale = [len_kp, len_ki]
 
-    # For 1D example, if Ki should be adjusted
-    if adjust == 'Ki':
-        bounds = [(0, 250)]  # bounds on the input variable Ki
-        lengthscale = [100.]  # length scale for the parameter variation [Ki] for the GP
-
-    # For 2D example, choose Kp and Ki as mutable parameters (below) and define bounds and lengthscale for both of them
-    if adjust == 'Kpi':
-        lengthscale = [len_kp, len_ki]
-
-        # 650 V
-        bounds = [(0.0, 0.08), (0, 180)]
-        # lengthscale = [0.015, 50.]
-
-        df_len = pd.DataFrame({'lengthscale': lengthscale,
-                               'bounds': bounds,
-                               'balanced_load': balanced_load})
+    # 650 V
+    bounds = [(0.0, 0.08), (0, 180)]
 
     # The performance should not drop below the safe threshold, which is defined by the factor safe_threshold times
     # the initial performance: safe_threshold = 0.8 means. Performance measurement for optimization are seen as
     # unsafe, if the new measured performance drops below 20 % of the initial performance of the initial safe (!)
     # parameter set
-    safe_threshold = 0.5
+    safe_threshold = 0.75
 
     # The algorithm will not try to expand any points that are below this threshold. This makes the algorithm stop
     # expanding points eventually.
@@ -419,23 +425,29 @@ def run_experiment(len_kp, len_ki):
         runner = MonteCarloRunner(agent, env)
         runner.run(num_episodes, n_mc=n_MC, visualise=True, prepare_mc_experiment=reset_loads)
 
-        print(f'>>>>>run({len_kp}, {len_ki}) {agent.unsafe}')
+        with open(f'{save_folder}/{len_kp:.4f},{len_ki:.4f}.txt', 'w')as f:
+            print(f'{agent.unsafe}', file=f)
 
         return agent.unsafe
 
 
 if __name__ == '__main__':
+    print(lengthscale_vec_kP, lengthscale_vec_kI)
     with Pool(10) as p:
         is_unsafe = p.starmap(run_experiment, product(lengthscale_vec_kP, lengthscale_vec_kI))
 
-    unsafe_vec = np.empty([len(lengthscale_vec_kP), len(lengthscale_vec_kI)])
+    safe_vec = np.empty([len(lengthscale_vec_kP), len(lengthscale_vec_kI)])
 
     for ((kk, ls_kP), (ii, ls_IP)), unsafe in zip(product(enumerate(lengthscale_vec_kP), enumerate(lengthscale_vec_kI)),
                                                   is_unsafe):
-        unsafe_vec[kk, ii] = int(unsafe)
+        safe_vec[kk, ii] = int(not unsafe)
 
-    df = pd.DataFrame([[unsafe_vec], [lengthscale_vec_kP], [lengthscale_vec_kI]])
+    df = pd.DataFrame(safe_vec, index=[f'{i:.3f}' for i in lengthscale_vec_kP],
+                      columns=[f'{i:.2f}' for i in lengthscale_vec_kI])
     df.to_pickle(save_folder + '/Unsafe_matrix')
+    print(df)
+    sns.heatmap(df)
+    plt.show()
 
     # agent.unsafe = False
     #####################################
@@ -444,4 +456,4 @@ if __name__ == '__main__':
     # if safe_results:
     #   env.history.df.to_pickle('Simulation')
 
-    print(unsafe_vec)
+    print(safe_vec)
