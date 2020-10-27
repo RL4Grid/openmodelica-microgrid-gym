@@ -71,13 +71,13 @@ safe_results = True
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'len_sweep_cc_650')
+save_folder = os.path.join(current_directory, r'len_sweep_cc_650_1')
 # save_folder = os.path.join(current_directory, r'Paper_CC_meas')
 # save_folder = os.path.join(current_directory, r'NotTurn21Back')
 os.makedirs(save_folder, exist_ok=True)
 
-lengthscale_vec_kP = 0.0005 * np.logspace(.75, 2.5, 8)
-lengthscale_vec_kI = np.logspace(.8, 2.2, 8)
+lengthscale_vec_kP = 0.0005 * np.logspace(.5, 1.5, 5)
+lengthscale_vec_kI = np.logspace(.5, 1.5, 5)
 
 np.random.seed(0)
 
@@ -191,7 +191,7 @@ def run_experiment(len_kp, len_ki):
     lengthscale = [len_kp, len_ki]
 
     # 650 V
-    bounds = [(0.0, 0.08), (0, 180)]
+    bounds = [(0.001, 0.08), (0.001, 180)]
 
     # The performance should not drop below the safe threshold, which is defined by the factor safe_threshold times
     # the initial performance: safe_threshold = 0.8 means. Performance measurement for optimization are seen as
@@ -236,7 +236,7 @@ def run_experiment(len_kp, len_ki):
         # mutable_params = dict(currentP=MutableFloat(0.2), currentI=MutableFloat(33))
 
         # For vDC = 650 V
-        mutable_params = dict(currentP=MutableFloat(0.037), currentI=MutableFloat(10.9))
+        mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
 
         # mutable_params = dict(currentP=MutableFloat(0.037), currentI=MutableFloat(170))
         # mutable_params = dict(currentP=MutableFloat(0.07), currentI=MutableFloat(11))

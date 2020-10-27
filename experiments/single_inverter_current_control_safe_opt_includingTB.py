@@ -32,7 +32,7 @@ params = {'backend': 'ps',
           'legend.fontsize': 8,  # was 10
           'xtick.labelsize': 8,
           'ytick.labelsize': 8,
-          'text.usetex': True,
+          #'text.usetex': True,
           #'figure.figsize': [3.39, 2.5],
           'figure.figsize': [3.9, 3.1],
           'font.family': 'serif',
@@ -73,7 +73,7 @@ safe_results = True
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'Kpi_Conservative_longerRun')
+save_folder = os.path.join(current_directory, r'Kpi_Conservative_longerRun1')
 #save_folder = os.path.join(current_directory, r'Paper_CC_meas')
 #save_folder = os.path.join(current_directory, r'NotTurn21Back')
 os.makedirs(save_folder, exist_ok=True)
@@ -203,8 +203,8 @@ if __name__ == '__main__':
             #Conservative
             #bounds = [(0.0, 0.035), (0, 75)]
             #lengthscale = [0.015, 20.]
-            bounds = [(0.0, 0.08), (0, 120)]
-            lengthscale = [0.015, 20.]
+            bounds = [(0.001, 0.08), (0.001, 120)]
+            lengthscale = [0.005, 2.5]
 
             #lengthscale = [0.1, 200.]  mess
 

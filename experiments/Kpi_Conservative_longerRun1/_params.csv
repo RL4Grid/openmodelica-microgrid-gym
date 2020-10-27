@@ -1,0 +1,3 @@
+,lengthscale,bounds,balanced_load
+0,0.005,"(0.001, 0.08)",False
+1,2.5,"(0.001, 120)",False
