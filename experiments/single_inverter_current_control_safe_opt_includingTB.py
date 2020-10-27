@@ -57,14 +57,14 @@ from openmodelica_microgrid_gym.util import dq0_to_abc, nested_map, FullHistory
 # - Ki: 1D example: Only the integral gain Ki of the PI controller is adjusted
 # - Kpi: 2D example: Kp and Ki are adjusted simultaneously
 
-adjust = 'Ki'
+adjust = 'Kpi'
 
 # Check if really only one simulation scenario was selected
 if adjust not in {'Kp', 'Ki', 'Kpi'}:
     raise ValueError("Please set 'adjust' to one of the following values: 'Kp', 'Ki', 'Kpi'")
 
 include_simulate = True
-show_plots = True
+show_plots = False
 balanced_load = False
 do_measurement = False
 
@@ -73,7 +73,7 @@ safe_results = True
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'Ki_CC_V650_2')
+save_folder = os.path.join(current_directory, r'Kpi_Conservative_longerRun')
 #save_folder = os.path.join(current_directory, r'Paper_CC_meas')
 #save_folder = os.path.join(current_directory, r'NotTurn21Back')
 os.makedirs(save_folder, exist_ok=True)
@@ -81,13 +81,13 @@ os.makedirs(save_folder, exist_ok=True)
 lengthscale_vec = np.linspace(0.01, 0.35, 1)
 unsafe_vec = np.zeros(len(lengthscale_vec))
 
-np.random.seed(0)
+np.random.seed(1)
 
 # Simulation definitions
 net = Network.load('../net/net_single-inv-curr_Paper_SC.yaml')
 delta_t = 1e-4  # simulation time step size / s
 max_episode_steps = 1000  # number of simulation steps per episode
-num_episodes = 15 # number of simulation episodes (i.e. SafeOpt iterations)
+num_episodes = 500 # number of simulation episodes (i.e. SafeOpt iterations)
 n_MC = 1 # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
 # distribution to represent real world more accurate
 v_DC = 650/2  # DC-link voltage / V; will be set as model parameter in the FMU
@@ -95,7 +95,7 @@ nomFreq = 50  # nominal grid frequency / Hz
 nomVoltPeak = 20#230 * 1.414  # nominal grid voltage / V
 iLimit = 30  # inverter current limit / A
 iNominal = 20  # nominal inverter current / A
-mu = 2  # factor for barrier function (see below)
+mu = 2*2  # factor for barrier function (see below)
 DroopGain = 0.0  # virtual droop gain for active power / W/Hz
 QDroopGain = 0.0  # virtual droop gain for reactive power / VAR/V
 i_ref = np.array([15, 0, 0])  # exemplary set point i.e. id = 15, iq = 0, i0 = 0 / A
@@ -179,8 +179,8 @@ if __name__ == '__main__':
 
         # For 1D example, if Ki should be adjusted
         if adjust == 'Ki':
-            bounds = [(0, 30)]  # bounds on the input variable Ki
-            lengthscale = [7.5]  # length scale for the parameter variation [Ki] for the GP
+            bounds = [(0, 80)]  # bounds on the input variable Ki
+            lengthscale = [22]  # length scale for the parameter variation [Ki] for the GP
 
         # For 2D example, choose Kp and Ki as mutable parameters (below) and define bounds and lengthscale for both of them
         if adjust == 'Kpi':
@@ -198,8 +198,13 @@ if __name__ == '__main__':
             #bounds = [(0.0, 0.04), (0, 100)]
 
             # 650 V
-            bounds = [(0.0, 0.08), (0, 180)]
-            lengthscale = [0.015, 50.]
+            #bounds = [(0.0, 0.08), (0, 120)]
+            #lengthscale = [0.015, 60.]
+            #Conservative
+            #bounds = [(0.0, 0.035), (0, 75)]
+            #lengthscale = [0.015, 20.]
+            bounds = [(0.0, 0.08), (0, 120)]
+            lengthscale = [0.015, 20.]
 
             #lengthscale = [0.1, 200.]  mess
 
@@ -213,7 +218,7 @@ if __name__ == '__main__':
         # the initial performance: safe_threshold = 0.8 means. Performance measurement for optimization are seen as
         # unsafe, if the new measured performance drops below 20 % of the initial performance of the initial safe (!)
         # parameter set
-        safe_threshold = 0.5
+        safe_threshold = 0.75
 
         # The algorithm will not try to expand any points that are below this threshold. This makes the algorithm stop
         # expanding points eventually.
@@ -246,6 +251,7 @@ if __name__ == '__main__':
             #current_dqp_iparams = PI_params(kP=0.01, kI=mutable_params['currentI'], limits=(-1, 1))
             #650 V
             mutable_params = dict(currentI=MutableFloat(3))
+            mutable_params = dict(currentI=MutableFloat(10))
             current_dqp_iparams = PI_params(kP=0.004, kI=mutable_params['currentI'], limits=(-1, 1))
 
         # For 2D example, choose Kp and Ki as mutable parameters
@@ -256,7 +262,12 @@ if __name__ == '__main__':
 
 
             # For vDC = 650 V
-            mutable_params = dict(currentP=MutableFloat(0.037), currentI=MutableFloat(10.9))
+            #mutable_params = dict(currentP=MutableFloat(0.037), currentI=MutableFloat(10.9))
+            # conservative
+
+            mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
+
+            #mutable_params = dict(currentP=MutableFloat(0.0107), currentI=MutableFloat(2.9))
 
             #mutable_params = dict(currentP=MutableFloat(0.037), currentI=MutableFloat(170))
             #mutable_params = dict(currentP=MutableFloat(0.07), currentI=MutableFloat(11))
@@ -529,7 +540,7 @@ if __name__ == '__main__':
             if adjust == 'Ki':
                 ax.set_xlabel(r'$K_\mathrm{i}\,/\,\mathrm{(VA^{-1}s^{-1})}$')
                 ax.set_ylabel(r'$J$')
-                ax.set_ylim([-0.5, 2])
+                ax.set_ylim([0, 1.5])
             elif adjust == 'Kp':
                 ax.set_xlabel(r'$K_\mathrm{p}\,/\,\mathrm{(VA^{-1})}$')
                 ax.set_ylabel(r'$J$')
