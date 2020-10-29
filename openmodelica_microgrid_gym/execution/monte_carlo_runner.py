@@ -5,6 +5,7 @@ from typing import Dict, Any
 from tqdm import tqdm
 from openmodelica_microgrid_gym.agents.episodic import EpisodicLearnerAgent
 from openmodelica_microgrid_gym.env import ModelicaEnv
+import matplotlib.pyplot as plt
 
 
 class MonteCarloRunner:
@@ -46,6 +47,7 @@ class MonteCarloRunner:
         :param n_mc: number of Monte-Carlo experiments using the same parameter set before updating the latter
         :param visualise: turns on visualization of the environment
         """
+        t = np.linspace(0, self.env.max_episode_steps*self.env.net.ts, self.env.max_episode_steps)
         self.agent.reset()
         self.env.history.cols = self.env.history.structured_cols(None) + self.agent.measurement_cols
         self.agent.obs_varnames = self.env.history.cols
@@ -62,14 +64,17 @@ class MonteCarloRunner:
             for m in tqdm(range(n_mc), desc='monte_carlo_run', unit='epoch', leave=False):
                 prepare_mc_experiment()
 
+                r_vec = np.zeros(self.env.max_episode_steps)
+
                 obs = self.env.reset()
 
-                for _ in tqdm(range(self.env.max_episode_steps), desc='steps', unit='step', leave=False):
+                for p in tqdm(range(self.env.max_episode_steps), desc='steps', unit='step', leave=False):
                     self.agent.observe(r, False)
                     act = self.agent.act(obs)
                     self.env.measurement = self.agent.measurement
                     self.env.history.amend(self.agent.measurement, (-len(self.agent.measurement),None))
                     obs, r, done, info = self.env.step(act)
+                    r_vec[p] = r
                     self.env.render()
                     if done:
                         self.agent.observe(r,
@@ -97,6 +102,19 @@ class MonteCarloRunner:
                         self.agent.prepare_episode()
 
                         break
+                """
+                plt.plot(t, r_vec)
+                plt.ylabel('Reward')
+                plt.grid(True)
+                plt.savefig('Kpi_rewTest' + '/Rew_abc_ohneBuffer.pdf')
+                plt.show()
+
+                plt.plot(t, np.cumsum(r_vec))
+                plt.ylabel('Cummulated Reward')
+                plt.grid(True)
+                plt.savefig('Kpi_rewTest'+'/cumRew_abc_ohneBuffer.pdf')
+                plt.show()
+                """
 
                 _, env_fig = self.env.close()
 
@@ -122,6 +140,7 @@ class MonteCarloRunner:
             self.agent.performance = np.mean(performance_mc)
             self.agent.update_params()
             if self.agent.unsafe:
+                # toDo: remove - only needed for lengthscale search
                 break
 
             if visualise:

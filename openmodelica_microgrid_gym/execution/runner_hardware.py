@@ -33,12 +33,13 @@ class RunnerHardware:
         
         """
 
-    def run(self, n_episodes: int = 10, visualise: bool = False):
+    def run(self, n_episodes: int = 10, visualise: bool = False, save_folder: str = 'Mess'):
         """
         Trains/executes the agent on the environment for a number of epochs
 
         :param n_episodes: number of epochs to play
         :param visualise: turns on visualization of the environment
+        :param save_folder: string with save folder name
         """
         self.agent.reset()
         #self.env.history.cols = self.env.history.structured_cols(None) + self.agent.measurement_cols
@@ -62,10 +63,10 @@ class RunnerHardware:
                 #self.env.render()
                 if done:
                     break
-            self.env.render(0)
+            #self.env.render(0)
             self.agent.observe(r, done)
 
-            self.env.render(self.agent.history.df.J.iloc[-1])
+            self.env.render(self.agent.history.df.J.iloc[-1], save_folder)
 
 
             print(self.agent.unsafe)

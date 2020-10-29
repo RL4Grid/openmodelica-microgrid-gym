@@ -407,7 +407,7 @@ class MultiPhaseDQCurrentSourcingController(Controller):
         """
 
         # Get the next phase rotation angle to implement
-        phase = self._phaseDDS.step(self.f_nom)
+        phase = self._phaseDDS.step(self.f_nom) #+ np.pi/2
 
         # Transform the feedback to the dq0 frame
         CVIdq0 = abc_to_dq0(currentCV, phase)
