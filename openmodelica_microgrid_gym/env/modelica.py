@@ -316,6 +316,7 @@ class ModelicaEnv(gym.Env):
         self._state += self.state_noise.gains
         obs = np.hstack((self._state, self.measurement))
         outputs = self.net.augment(obs, self.is_normalized)
+        reward = self.reward(self.history.cols, np.array(self.history.last()))
         outputs = np.hstack((outputs, obs[len(self.net.out_vars(False)):]))
         self.history.append(outputs)
 
@@ -329,7 +330,7 @@ class ModelicaEnv(gym.Env):
         else:
             logger.debug("Experiment step done, experiment done.")
 
-        reward = self.reward(self.history.cols, outputs)
+        #reward = self.reward(self.history.cols, outputs)
         self._failed = np.isnan(reward) or np.isinf(reward) and reward < 0 or reward is None
 
         # only return the state, the agent does not need the measurement

@@ -68,6 +68,7 @@ class MonteCarloRunner:
                     self.agent.observe(r, False)
                     act = self.agent.act(obs)
                     self.env.measurement = self.agent.measurement
+                    self.env.history.amend(self.agent.measurement, (-len(self.agent.measurement),None))
                     obs, r, done, info = self.env.step(act)
                     self.env.render()
                     if done:

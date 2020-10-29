@@ -111,6 +111,10 @@ class FullHistory(EmptyHistory):
     def last(self):
         return self._data[-1]
 
+    def amend(self, values, idx):
+        self._data[-1][slice(*idx)] = values
+
+
     @property
     def df(self):
         # executing this conditionally only if _data is not a df is actually slower!!!
