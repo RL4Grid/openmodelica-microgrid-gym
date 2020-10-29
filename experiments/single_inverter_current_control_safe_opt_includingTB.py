@@ -71,7 +71,7 @@ safe_results = True
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'Kpi_Sim700V')
+save_folder = os.path.join(current_directory, r'Kpi_Sim700V_conservative_long_run')
 os.makedirs(save_folder, exist_ok=True)
 
 np.random.seed(1)
@@ -80,7 +80,7 @@ np.random.seed(1)
 net = Network.load('../net/net_single-inv-curr_Paper_SC.yaml')
 delta_t = 1e-4  # simulation time step size / s
 max_episode_steps = 1000  # number of simulation steps per episode
-num_episodes = 50  # number of simulation episodes (i.e. SafeOpt iterations)
+num_episodes = 500  # number of simulation episodes (i.e. SafeOpt iterations)
 n_MC = 1  # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
 iLimit = 25  # inverter current limit / A
 iNominal = 15  # nominal inverter current / A
@@ -165,21 +165,19 @@ if __name__ == '__main__':
         #lengthscale = [0.2, 200.]  #
 
         # 700 V
-        bounds = [(0.001, 0.06), (0.001, 120)]
+        bounds = [(0.001, 0.06), (0.001, 180)]
         # lengthscale = [0.01, 50.] #
         lengthscale = [0.01, 40.]  #
 
 
         # lengthscale = [0.02, 100.] #
         # Conservative
-        # bounds = [(0.0, 0.035), (0, 75)]
-        # lengthscale = [0.015, 20.]
+        #bounds = [(0.0, 0.035), (0, 75)]
+        lengthscale = [0.015, 20.]
         # bounds = [(0.0, 0.08), (0, 120)]
         # lengthscale = [0.015, 20.]
 
-        # lengthscale = [0.1, 200.]  mess
 
-        # lengthscale = [0.12, 100.]
 
     df_len = pd.DataFrame({'lengthscale': lengthscale,
                            'bounds': bounds,
@@ -231,11 +229,11 @@ if __name__ == '__main__':
         mutable_params = dict(currentP=MutableFloat(0.4), currentI=MutableFloat(118))
 
         # For vDC = 700 V
-        mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(10.1))
+        #mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(10.1))
         #mutable_params = dict(currentP=MutableFloat(0.038), currentI=MutableFloat(1))
 
         # conservative
-        # mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
+        mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
 
         current_dqp_iparams = PI_params(kP=mutable_params['currentP'], kI=mutable_params['currentI'],
                                         limits=(-1, 1))
