@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from openmodelica_microgrid_gym.aux_ctl import DroopParams, InverseDroopParams, DroopController, InverseDroopController
 
-sim_time = 5#5e-3#30e-3  # /s
+sim_time = 10#5e-3#30e-3  # /s
 
 delta_t = 0.5e-4  # simulation time step size / s
 max_episode_steps = sim_time/delta_t  # number of simulation steps per episode
@@ -21,34 +21,40 @@ nomVoltPeak = nomVolt * 1.414  # nominal grid voltage / V
 
 omega = 2*np.pi*nomFreq
 
-R_load = 100
+R_load = 0.02
+R_load2 = 100000000
 #R_lv_line_10km = 0.031*10 #
-R_lv_line_10km = 0
-L_load = 0.01
-L_lv_line_10km = 0.00083*10     # nach MG book chapter 5, table 5.1
-
+R_lv_line_10km = 31
+L_load = 0
+#L_lv_line_10km = 0.00083*10     # nach MG book chapter 5, table 5.1
+L_lv_line_10km = 0
 #B_L_lv_line_10km = -1/(omega*L_lv_line_10km)
+
+#QUESTION: Assume fixed omega, or use the real frequencies?
 B_L_lv_line_10km = -(omega * L_lv_line_10km)/(R_lv_line_10km**2 + (omega*L_lv_line_10km)**2)
 G_L_lv_line_10km = R_lv_line_10km/(R_lv_line_10km**2 + (omega*L_lv_line_10km)**2)
 
 G_RL_load = R_load/(R_load**2 + (omega*L_load)**2)
 B_RL_load = -(omega * L_load)/(R_load**2 + (omega * L_load)**2)
-
+G_RL_load2 = 0
 
 B_load = 0#1/0.001
-B12 = 1/0.01
+
 B = np.array([[2*B_L_lv_line_10km, -B_L_lv_line_10km, -B_L_lv_line_10km],
-              [-B_L_lv_line_10km, 2*B_L_lv_line_10km, -B_L_lv_line_10km],
+              [-B_L_lv_line_10km, 2*B_L_lv_line_10km+0, -B_L_lv_line_10km],
               [-B_L_lv_line_10km, -B_L_lv_line_10km, 2*B_L_lv_line_10km+B_RL_load]])  # Susceptance matrix
 
 G = np.array([[2*G_L_lv_line_10km, -G_L_lv_line_10km, -G_L_lv_line_10km],
-                   [-G_L_lv_line_10km, 2*G_L_lv_line_10km, -G_L_lv_line_10km],
+                   [-G_L_lv_line_10km, 2*G_L_lv_line_10km+0, -G_L_lv_line_10km],
                    [-G_L_lv_line_10km, -G_L_lv_line_10km, 2*G_L_lv_line_10km+G_RL_load]])
-
-P_offset = np.array([0, 0, 0])
+print(B)
+print(G)
+P_offset = np.array([10000, 0, 0])
 Q_offset = np.array([0, 0, 0])
-droop_linear = np.array([8000, 1000, 0])     # W/Hz
-q_droop_linear = np.array([12000, 3000, 0])
+
+
+droop_linear = np.array([10000, 0, 0])     # W/Hz
+q_droop_linear = np.array([100, 0, 0])
 
 
 def env_model_ode(t, y):#, arg):
@@ -59,7 +65,7 @@ def env_model_ode(t, y):#, arg):
     freqs = y[3:6]
     voltages = y[6:]
     # theta in rad! correct? Yes
-    print(voltages)
+ #   print(voltages)
     num_nodes = len(freqs)
 
     p = np.zeros(num_nodes)
@@ -98,8 +104,8 @@ if __name__ == '__main__':
 
     f = nomFreq
     voltage1_0 = 230
-    voltage2_0 = 230
-    voltage3_0 = 100
+    voltage2_0 = 1
+    voltage3_0 = 1
 
     theta1_0 = 0
     theta2_0 = 0
@@ -183,5 +189,3 @@ if __name__ == '__main__':
     #plt.xlim([1.21,1.351])
     #plt.ylim([49.25,50.1])
     plt.show()
-
-
