@@ -61,17 +61,17 @@ adjust = 'Kpi'
 if adjust not in {'Kp', 'Ki', 'Kpi'}:
     raise ValueError("Please set 'adjust' to one of the following values: 'Kp', 'Ki', 'Kpi'")
 
-include_simulate = True
+include_simulate = False
 show_plots = False
 balanced_load = False
-do_measurement = False
+do_measurement = True
 
 # If True: Results are stored to directory mentioned in: REBASE to DEV after MERGE #60!!
-safe_results = True
+safe_results = False
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'Kpi_Sim700V_conservative_long_run')
+save_folder = os.path.join(current_directory, r'Kpi_Mess700V_3')
 os.makedirs(save_folder, exist_ok=True)
 
 np.random.seed(1)
@@ -80,11 +80,11 @@ np.random.seed(1)
 net = Network.load('../net/net_single-inv-curr_Paper_SC.yaml')
 delta_t = 1e-4  # simulation time step size / s
 max_episode_steps = 1000  # number of simulation steps per episode
-num_episodes = 500  # number of simulation episodes (i.e. SafeOpt iterations)
+num_episodes = 1  # number of simulation episodes (i.e. SafeOpt iterations)
 n_MC = 1  # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
 iLimit = 25  # inverter current limit / A
 iNominal = 15  # nominal inverter current / A
-mu = 0  # factor for barrier function (see below)
+mu = 4  # factor for barrier function (see below)
 i_ref1 = np.array([10, 0, 0])  # exemplary set point i.e. id = 10, iq = 0, i0 = 0 / A
 i_ref2 = np.array([15, 0, 0])  # exemplary set point i.e. id = 15, iq = 0, i0 = 0 / A
 
@@ -155,8 +155,9 @@ if __name__ == '__main__':
 
     # For 1D example, if Ki should be adjusted
     if adjust == 'Ki':
-        bounds = [(0, 80)]  # bounds on the input variable Ki
-        lengthscale = [22]  # length scale for the parameter variation [Ki] for the GP
+        bounds = [(0, 280)]  # bounds on the input variable Ki
+        bounds = [(0, 800)]  # bounds on the input variable Ki
+        lengthscale = [400]  # length scale for the parameter variation [Ki] for the GP
 
     # For 2D example, choose Kp and Ki as mutable parameters (below) and define bounds and lengthscale for both of them
     if adjust == 'Kpi':
@@ -165,15 +166,15 @@ if __name__ == '__main__':
         #lengthscale = [0.2, 200.]  #
 
         # 700 V
-        bounds = [(0.001, 0.06), (0.001, 180)]
-        # lengthscale = [0.01, 50.] #
-        lengthscale = [0.01, 40.]  #
+        bounds = [(0.001, 0.1), (0.001, 400)]
+        #lengthscale = [0.015, 100.]  #
+        lengthscale = [0.015, 40.]  #
 
 
         # lengthscale = [0.02, 100.] #
         # Conservative
         #bounds = [(0.0, 0.035), (0, 75)]
-        lengthscale = [0.015, 20.]
+        #lengthscale = [0.015, 20.]
         # bounds = [(0.0, 0.08), (0, 120)]
         # lengthscale = [0.015, 20.]
 
@@ -181,7 +182,8 @@ if __name__ == '__main__':
 
     df_len = pd.DataFrame({'lengthscale': lengthscale,
                            'bounds': bounds,
-                           'balanced_load': balanced_load})
+                           'balanced_load': balanced_load,
+                           'barrier_param_mu': mu})
 
     # The performance should not drop below the safe threshold, which is defined by the factor safe_threshold times
     # the initial performance: safe_threshold = 0.8 means. Performance measurement for optimization are seen as
@@ -222,6 +224,7 @@ if __name__ == '__main__':
         mutable_params = dict(currentI=MutableFloat(3))
         mutable_params = dict(currentI=MutableFloat(10))
         current_dqp_iparams = PI_params(kP=0.004, kI=mutable_params['currentI'], limits=(-1, 1))
+        #current_dqp_iparams = PI_params(kP=0.034, kI=mutable_params['currentI'], limits=(-1, 1))
 
     # For 2D example, choose Kp and Ki as mutable parameters
     elif adjust == 'Kpi':
@@ -229,11 +232,13 @@ if __name__ == '__main__':
         mutable_params = dict(currentP=MutableFloat(0.4), currentI=MutableFloat(118))
 
         # For vDC = 700 V
-        #mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(10.1))
-        #mutable_params = dict(currentP=MutableFloat(0.038), currentI=MutableFloat(1))
+        mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(10.1))
+
+        #mutable_params = dict(currentP=MutableFloat(0.13), currentI=MutableFloat(10))
+        #mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(750))
 
         # conservative
-        mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
+        #mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
 
         current_dqp_iparams = PI_params(kP=mutable_params['currentP'], kI=mutable_params['currentI'],
                                         limits=(-1, 1))
@@ -476,9 +481,9 @@ if __name__ == '__main__':
             ax.set_xlabel(r'$K_\mathrm{p}\,/\,\mathrm{(VA^{-1})}$')
             ax.get_figure().axes[1].set_ylabel(r'$J$')
             plt.title('Lengthscale = {}; balanced = '.format(lengthscale, balanced_load))
-            ax.plot([mutable_params['currentP'].val, mutable_params['currentP'].val], bounds[1], 'k-', zorder=1,
-                    lw=4,
-                    alpha=.5)
+            #ax.plot([mutable_params['currentP'].val, mutable_params['currentP'].val], bounds[1], 'k-', zorder=1,
+            #        lw=4,
+            #        alpha=.5)
         best_agent_plt.show()
 
         if safe_results:

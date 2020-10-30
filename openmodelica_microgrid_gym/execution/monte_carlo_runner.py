@@ -139,9 +139,9 @@ class MonteCarloRunner:
 
             self.agent.performance = np.mean(performance_mc)
             self.agent.update_params()
-            if self.agent.unsafe:
+            #if self.agent.unsafe:
                 # toDo: remove - only needed for lengthscale search
-                break
+                #break
 
             if visualise:
                 agent_fig = self.agent.render()
