@@ -433,7 +433,7 @@ def run_experiment(len_kp, len_ki):
 
 if __name__ == '__main__':
     print(lengthscale_vec_kP, lengthscale_vec_kI)
-    with Pool(10) as p:
+    with Pool(5) as p:
         is_unsafe = p.starmap(run_experiment, product(lengthscale_vec_kP, lengthscale_vec_kI))
 
     safe_vec = np.empty([len(lengthscale_vec_kP), len(lengthscale_vec_kI)])

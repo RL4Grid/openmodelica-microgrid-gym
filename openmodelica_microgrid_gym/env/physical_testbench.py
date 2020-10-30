@@ -19,8 +19,9 @@ class TestbenchEnv(gym.Env):
 
     def __init__(self, host: str = '131.234.172.139', username: str = 'root', password: str = 'omg',
                  DT: float = 1/20000, executable_script_name: str = 'my_first_hps' ,num_steps: int = 1000,
-                 kP: float = 0.01, kI: float = 5.0, kPV: float = 0.01, kIV: float = 5.0,  ref: float = 10.0, ref2: float =12, f_nom: float = 50.0, i_limit: float = 30,
-                 i_nominal: float = 20, v_nominal: float = 20):
+                 kP: float = 0.01, kI: float = 5.0, kPV: float = 0.01, kIV: float = 5.0,  ref: float = 10.0,
+                 ref2: float =12, f_nom: float = 50.0, i_limit: float = 25,
+                 i_nominal: float = 15, v_nominal: float = 20):
 
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -74,8 +75,8 @@ class TestbenchEnv(gym.Env):
         Takes current measurement and setpoints so calculate the mean-root-error control error and uses a logarithmic
         barrier function in case of violating the current limit. Barrier function is adjustable using parameter mu.
 
-        :param cols: list of variable names of the data
-        :param data: observation data from the environment (ControlVariables, e.g. currents and voltages)
+        :param Iabc_meas:
+        :param Iabc_SP:
         :return: Error as negative reward
         """
         mu = 2
@@ -87,7 +88,6 @@ class TestbenchEnv(gym.Env):
         # (due to normalization the control error is often around zero -> compared to MSE metric, the MRE provides
         #  better, i.e. more significant,  gradients)
         # plus barrier penalty for violating the current constraint
-        #error = np.sum((np.abs((Vabc_SP - vabc_meas)) / self.v_nominal) ** 0.5, axis=0) #+\
         error =  (np.sum((np.abs((Iabc_SP - Iabc_meas)) / self.i_limit) ** 0.5, axis=0) \
                 + -np.sum(mu * np.log(1 - np.maximum(np.abs(Iabc_meas) - self.i_nominal, 0) / \
                 (self.i_limit - self.i_nominal)), axis=0) \
@@ -96,14 +96,10 @@ class TestbenchEnv(gym.Env):
 
         return -error.squeeze()
 
-    def reset(self, kP, kI):#, kPv, kIv):
+    def reset(self, kP, kI):
         # toDo: ssh connection not open every episode!
         self.kP = kP
         self.kI = kI
-        #self.kPV = kPv
-        #self.kIV = kIv
-
-        #self.ssh.connect(self.host, username=self.username, password=self.password)
 
         count_retries = 0
         connected = False
@@ -125,11 +121,6 @@ class TestbenchEnv(gym.Env):
         if count_retries == 10:
             print( 'SSH FUCKED UP!')
 
-
-
-        #toDo: get SP and kP/I from agent?
-        #str_command = './{} {} {} {} {} {}'.format(self.executable_script_name, self.max_episode_steps, self.kP, self.kI,
-        #                                           self.i_ref, self.f_nom)
 
         str_command = './{} {} {} {} {} {} {}'.format(self.executable_script_name, self.max_episode_steps, self.kP,
                                                    self.kI,
@@ -153,16 +144,10 @@ class TestbenchEnv(gym.Env):
         self.current_step += 1
 
         I_abc_meas = temp_data[[3,4,5]]
-        #Idq0_SP = np.array([self.i_ref,0,0])
-        I_abc_SP = temp_data[[10,11,12]]
-        #phase = temp_data[9]
+        I_abc_SP = temp_data[[9,10,11]]
 
         reward = self.rew_fun(I_abc_meas, I_abc_SP)
 
-        #V_abc_meas = temp_data[[0, 1, 2]]
-        # Idq0_SP = np.array([self.i_ref,0,0])
-        #V_abc_SP = temp_data[[10, 11, 12]]
-        #reward = self.rew_fun(V_abc_meas, V_abc_SP)
 
         if self.current_step == self.max_episode_steps:
             self.done = True
@@ -171,7 +156,7 @@ class TestbenchEnv(gym.Env):
 
         return temp_data, reward, self.done, info
 
-    def render(self, J):
+    def render(self, J, save_folder):
 
         N = (len(self.data))
         t = np.linspace(0, N * self.DT, N)
@@ -276,8 +261,8 @@ class TestbenchEnv(gym.Env):
         plt.show()
         time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         #fig.savefig('hardwareTest_plt/{}_abcInductor_currents' + time + '.pdf'.format(J))
-        fig.savefig('CC_meas_Fig9_1/J_{}_abcInductor_currents.pdf'.format(J))
-        fig.savefig('CC_meas_Fig9_1/J_{}_abcInductor_currents.pgf'.format(J))
+        fig.savefig(save_folder + '/J_{}_abcInductor_currents.pdf'.format(J))
+        fig.savefig(save_folder + '/J_{}_abcInductor_currents.pgf'.format(J))
 
 
         fig = plt.figure()
@@ -290,5 +275,18 @@ class TestbenchEnv(gym.Env):
         plt.show()
         time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         #fig.savefig('hardwareTest_plt/dq0Inductor_currents' + time + '.pdf')
-        fig.savefig('CC_meas_Fig9_1/J_{}_dq0Inductor_currents.pdf'.format(J))
-        fig.savefig('CC_meas_Fig9_1/J_{}_dq0Inductor_currents.pgf'.format(J))
+        fig.savefig(save_folder + '/J_{}_dq0Inductor_currents.pdf'.format(J))
+        fig.savefig(save_folder + '/J_{}_dq0Inductor_currents.pgf'.format(J))
+
+        fig = plt.figure()
+        plt.plot(t, m_D, t, m_Q, t, m_0)
+        plt.xlabel(r'$t\,/\,\mathrm{s}$')
+        plt.ylabel('$i_{\mathrm{dq0}}\,/\,\mathrm{A}$')
+        # plt.title('{}'.format(J))
+        # plt.ylim([-3, 16])
+        plt.grid()
+        plt.show()
+        time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
+        # fig.savefig('hardwareTest_plt/dq0Inductor_currents' + time + '.pdf')
+        fig.savefig(save_folder + '/J_{}_mdq0.pdf'.format(J))
+        fig.savefig(save_folder + '/J_{}_mdq0.pgf'.format(J))
