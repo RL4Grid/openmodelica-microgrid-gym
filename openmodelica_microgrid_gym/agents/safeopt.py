@@ -171,7 +171,7 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
             # check if the dimensionality is less then 4 dimension
             logger.info('Plotting of GP landscape not possible for then 3 dimensions')
             return figure
-        self.optimizer.plot(1000, figure=figure, ms = 1, color = 'k')
+        self.optimizer.plot(1000, figure=figure, ms = 1)#, color = 'k')
 
         # mark best performance in green
         y, x = self.history.df.loc[self.best_episode, ['J', 'Params']]
@@ -191,8 +191,8 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
         else:
             logger.warning('Choose appropriate number of control parameters')
 
-        #plt.show()             # only comment for lengthscale sweep
-        plt.close(figure)       # only needed for lengthscale sweep
+        plt.show()             # only comment for lengthscale sweep
+        #plt.close(figure)       # only needed for lengthscale sweep
         return figure
 
     def prepare_episode(self):
