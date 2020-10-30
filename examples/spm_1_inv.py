@@ -90,6 +90,7 @@ def env_model_ode(t, y):#, arg):
     J_voltage = [20, 20, 20]
     df = (p-droop_linear*(freqs-nomFreq))/(J*freqs)
     dv = (q + q_droop_linear * (voltages - nomVolt)) / (J_voltage * voltages)
+    print(freqs)
     dtheta = freqs * 2 * np.pi
 
     # d theta_k / dt = f_k
