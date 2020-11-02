@@ -61,10 +61,10 @@ adjust = 'Kpi'
 if adjust not in {'Kp', 'Ki', 'Kpi'}:
     raise ValueError("Please set 'adjust' to one of the following values: 'Kp', 'Ki', 'Kpi'")
 
-include_simulate = False
-show_plots = False
+include_simulate = True
+show_plots = True
 balanced_load = False
-do_measurement = True
+do_measurement = False
 
 # If True: Results are stored to directory mentioned in: REBASE to DEV after MERGE #60!!
 safe_results = False
@@ -229,10 +229,10 @@ if __name__ == '__main__':
     # For 2D example, choose Kp and Ki as mutable parameters
     elif adjust == 'Kpi':
         # For 60V
-        mutable_params = dict(currentP=MutableFloat(0.4), currentI=MutableFloat(118))
+        #mutable_params = dict(currentP=MutableFloat(0.4), currentI=MutableFloat(118))
 
-        # For vDC = 700 V
-        mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(10.1))
+        # For vDC = 600 V
+        mutable_params = dict(currentP=MutableFloat(0.04), currentI=MutableFloat(11.8))
 
         #mutable_params = dict(currentP=MutableFloat(0.13), currentI=MutableFloat(10))
         #mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(750))
