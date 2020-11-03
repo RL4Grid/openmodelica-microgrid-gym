@@ -52,6 +52,7 @@ class MonteCarloRunner:
         self.env.history.cols = self.env.history.structured_cols(None) + self.agent.measurement_cols
         self.agent.obs_varnames = self.env.history.cols
 
+        initial_performance_mc = np.zeros(n_mc)
         performance_mc = np.zeros(n_mc)
 
         if not visualise:
@@ -84,10 +85,13 @@ class MonteCarloRunner:
                         # if v_max > 25:
                         #    asd = self.agent.episode_return + v_max
 
-                        self.agent.performance = self.agent._iterations / (
-                                self.agent.episode_return * self.agent.initial_performance)
+                        #self.agent.performance = self.agent._iterations / (
+                        #        self.agent.episode_return * self.agent.initial_performance)
+                        self.agent.performance = (self.agent.episode_return - self.agent.min_performance) \
+                                                 / (self.agent.initial_performance - self.agent.min_performance)
+
                         if m == 0 and i == 0:
-                            self.agent.initial_performance = self.agent.performance
+                            self.agent.initial_performance = self.agent.episode_return
                             self.agent.performance = 1  # instead of perf/initial_perf
                             self.agent.last_best_performance = self.agent.performance
                             self.agent.last_worst_performance = self.agent.performance
@@ -98,23 +102,24 @@ class MonteCarloRunner:
                             self.agent.last_worst_performance = self.agent.performance
 
                         performance_mc[m] = self.agent.performance
+                        initial_performance_mc[m] = self.agent.episode_return
                         # set iterations and episode return = 0
                         self.agent.prepare_episode()
 
                         break
-                """
+
                 plt.plot(t, r_vec)
                 plt.ylabel('Reward')
                 plt.grid(True)
-                plt.savefig('Kpi_rewTest' + '/Rew_abc_ohneBuffer.pdf')
+                plt.savefig('Ki_rewTest' + '/Rew_abc_ohneBuffer{}.pdf'.format(m))
                 plt.show()
 
                 plt.plot(t, np.cumsum(r_vec))
                 plt.ylabel('Cummulated Reward')
                 plt.grid(True)
-                plt.savefig('Kpi_rewTest'+'/cumRew_abc_ohneBuffer.pdf')
+                plt.savefig('Ki_rewTest'+'/cumRew_abc_ohneBuffer{}.pdf'.format(m))
                 plt.show()
-                """
+
 
                 _, env_fig = self.env.close()
 
@@ -134,8 +139,11 @@ class MonteCarloRunner:
             if i == 0:
                 # performance was normalized to first run -> use average of first episode so that J_initial for first
                 # is 1
-                performance_mc = performance_mc * self.agent.initial_performance
-                self.agent.initial_performance = np.mean(performance_mc)
+
+                eps_ret = performance_mc*(self.agent.initial_performance - self.agent.min_performance) +self.agent.min_performance
+                self.agent.initial_performance = np.mean(eps_ret)
+                performance_mc = (eps_ret - self.agent.min_performance) \
+                                                 / (self.agent.initial_performance - self.agent.min_performance)
 
             self.agent.performance = np.mean(performance_mc)
             self.agent.update_params()

@@ -37,7 +37,7 @@ params = {'backend': 'ps',
           'font.family': 'serif',
           'lines.linewidth': 1
           }
-matplotlib.rcParams.update(params)
+#matplotlib.rcParams.update(params)
 
 from openmodelica_microgrid_gym import Agent
 from openmodelica_microgrid_gym.agents import SafeOptAgent
@@ -55,7 +55,7 @@ from openmodelica_microgrid_gym.util import dq0_to_abc, nested_map, FullHistory
 # - Ki: 1D example: Only the integral gain Ki of the PI controller is adjusted
 # - Kpi: 2D example: Kp and Ki are adjusted simultaneously
 
-adjust = 'Kpi'
+adjust = 'Ki'
 
 # Check if really only one simulation scenario was selected
 if adjust not in {'Kp', 'Ki', 'Kpi'}:
@@ -67,11 +67,11 @@ balanced_load = False
 do_measurement = False
 
 # If True: Results are stored to directory mentioned in: REBASE to DEV after MERGE #60!!
-safe_results = False
+safe_results = True
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'Kpi_Mess700V_3')
+save_folder = os.path.join(current_directory, r'Ki_rewTest')
 os.makedirs(save_folder, exist_ok=True)
 
 np.random.seed(1)
@@ -81,12 +81,15 @@ net = Network.load('../net/net_single-inv-curr_Paper_SC.yaml')
 delta_t = 1e-4  # simulation time step size / s
 max_episode_steps = 1000  # number of simulation steps per episode
 num_episodes = 1  # number of simulation episodes (i.e. SafeOpt iterations)
-n_MC = 1  # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
+n_MC = 3  # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
 iLimit = 25  # inverter current limit / A
 iNominal = 15  # nominal inverter current / A
 mu = 4  # factor for barrier function (see below)
 i_ref1 = np.array([10, 0, 0])  # exemplary set point i.e. id = 10, iq = 0, i0 = 0 / A
 i_ref2 = np.array([15, 0, 0])  # exemplary set point i.e. id = 15, iq = 0, i0 = 0 / A
+
+phase_shift = 5
+amp_dev = 1.1
 
 # plant
 L = 2.3e-3  # / H
@@ -139,8 +142,29 @@ class Reward:
         return -error.squeeze()
 
 
+def cal_J_min(phase_shift, amp_dev):
+    """
+    Calulated the miminum performance for safeopt
+    """
+
+    ph_list = [phase_shift, 0]
+    amp_list = [1, amp_dev]
+    return_Jmin = np.zeros(len(ph_list))
+    t = np.linspace(0, max_episode_steps*delta_t, max_episode_steps)
+
+    for l in range(len(ph_list)):
+
+        amplitude = np.concatenate((i_ref1[0] * np.ones(int(max_episode_steps/2)), i_ref2[0] * np.ones(int(max_episode_steps/2))))
+        Mess = amp_list[l]*amplitude*np.cos(2*np.pi*50*t + (ph_list[l]*np.pi/180))
+        SP = amplitude*np.cos(2*np.pi*50*t)
+
+        return_Jmin[l] = -np.sum((np.abs((SP - Mess)) / iLimit) ** 0.5, axis=0) / 1000   # 3* -> for 3 phases
+
+    return max(return_Jmin)
+
 if __name__ == '__main__':
 
+    J_min = cal_J_min(phase_shift, amp_dev)
     #####################################
     # Definitions for the GP
     prior_mean = 0  # 2  # mean factor of the GP prior mean which is multiplied with the first performance of the initial set
@@ -167,8 +191,8 @@ if __name__ == '__main__':
 
         # 700 V
         bounds = [(0.001, 0.1), (0.001, 400)]
-        #lengthscale = [0.015, 100.]  #
-        lengthscale = [0.015, 40.]  #
+        lengthscale = [0.015, 100.]  #
+        #lengthscale = [0.015, 40.]  #
 
 
         # lengthscale = [0.02, 100.] #
@@ -189,7 +213,7 @@ if __name__ == '__main__':
     # the initial performance: safe_threshold = 0.8 means. Performance measurement for optimization are seen as
     # unsafe, if the new measured performance drops below 20 % of the initial performance of the initial safe (!)
     # parameter set
-    safe_threshold = 0.75
+    safe_threshold = 0
 
     # The algorithm will not try to expand any points that are below this threshold. This makes the algorithm stop
     # expanding points eventually.
@@ -257,12 +281,10 @@ if __name__ == '__main__':
     agent = SafeOptAgent(mutable_params,
                          abort_reward,
                          kernel,
-                         dict(bounds=bounds, noise_var=noise_var, prior_mean=prior_mean,
-                              safe_threshold=safe_threshold, explore_threshold=explore_threshold),
-                         [ctrl],
-                         dict(master=[[f'lc.inductor{k}.i' for k in '123'],
-                                      i_ref]),
-                         history=FullHistory()
+                         dict(bounds=bounds, noise_var=noise_var, prior_mean=prior_mean, safe_threshold=safe_threshold,
+                              explore_threshold=explore_threshold), [ctrl],
+                         dict(master=[[f'lc.inductor{k}.i' for k in '123'],i_ref]), history=FullHistory(),
+                         min_performance=J_min
                          )
 
 
@@ -308,12 +330,12 @@ if __name__ == '__main__':
     if include_simulate:
 
         # Defining unbalanced loads sampling from Gaussian distribution with sdt = 0.2*mean
-        # r_load = Load(R, 0.1 * R, balanced=balanced_load, tolerance=0.1)
-        # l_load = Load(L, 0.1 * L, balanced=balanced_load, tolerance=0.1)
-        # i_noise = Noise([0, 0, 0], [0.0023, 0.0015, 0.0018], 0.0005, 0.32)
+        r_load = Load(R, 0.1 * R, balanced=balanced_load, tolerance=0.1)
+        l_load = Load(L, 0.1 * L, balanced=balanced_load, tolerance=0.1)
+        #i_noise = Noise([0, 0, 0], [0.0023, 0.0015, 0.0018], 0.0005, 0.32)
 
-        r_load = Load(R, 0 * R, balanced=balanced_load)
-        l_load = Load(L, 0 * L, balanced=balanced_load)
+        #r_load = Load(R, 0 * R, balanced=balanced_load)
+        #l_load = Load(L, 0 * L, balanced=balanced_load)
         i_noise = Noise([0, 0, 0], [0.0, 0.0, 0.0], 0.0, 0.0)
 
 

@@ -12,7 +12,7 @@ from safeopt import SafeOptSwarm
 from openmodelica_microgrid_gym.agents.episodic import EpisodicLearnerAgent
 from openmodelica_microgrid_gym.agents.staticctrl import StaticControlAgent
 from openmodelica_microgrid_gym.agents.util import MutableParams
-from openmodelica_microgrid_gym.aux_ctl import Controller
+from openmodelica_microgrid_gym.aux_ctl import Controller, DDS
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
     def __init__(self, mutable_params: Union[dict, list], abort_reward: int, kernel: Kern, gp_params: Dict[str, Any],
                  ctrls: List[Controller],
                  obs_template: Mapping[str, List[Union[List[str], np.ndarray]]], obs_varnames: List[str] = None,
+                 min_performance: float = None,
                  **kwargs):
         """
         Agent to execute safeopt algorithm (https://arxiv.org/abs/1509.01066) to control the environment by using
@@ -47,6 +48,7 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
             The values will be passed as parameters to the controllers step function.
         :param obs_varnames: list of variable names that match the values of the observations
          passed in the act function. Will be automatically set by the Runner class
+         :param min_performance: Minial allowed performance to define parameters as safe
         """
         self.params = MutableParams(
             list(mutable_params.values()) if isinstance(mutable_params, dict) else mutable_params)
@@ -61,6 +63,7 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
         self.episode_return = None
         self.optimizer = None
         self._performance = None
+        self._min_performance = min_performance
         self.initial_performance = 1
         self.last_best_performance = 0      # set to 0 due to in MC otherwise we do not get the best/worst before the
         # first update_params after the MC loop
@@ -111,7 +114,11 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
         self.episode_return += reward or 0
         if terminated:
 
-            self.performance = self._iterations / (self.episode_return * self.initial_performance)
+            if self.optimizer is None:
+                self.initial_performance = self.episode_return
+
+            #self.performance = self._iterations / (self.episode_return * self.initial_performance)
+            self.performance = (self.episode_return - self._min_performance) / (self.initial_performance - self.min_performance)
             # safeopt update step
             self.update_params()
             # reset for new episode
@@ -124,8 +131,6 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
         """
         if self.optimizer is None:
             # First Iteration
-            self.initial_performance = self.performance
-            self.performance = self.performance / self.initial_performance
             self.last_best_performance = self.performance
             self.last_worst_performance = self.performance
 
@@ -249,11 +254,8 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
 
         if self._performance is None:
             # Performance = inverse average return (return/iterations)^⁻1 normalized by initial performance
-            self._performance = self._iterations / (self.episode_return * self.initial_performance)
-        #    return self._iterations / (self.episode_return * self.initial_performance)
-        #else:
-        #    return self._performance
-        #return self._iterations / (self.episode_return * self.initial_performance)
+            #self._performance = self._iterations / (self.episode_return * self.initial_performance)
+            self._performance = (self.episode_return - self._min_performance) / (self.initial_performance - self.min_performance)
 
         return self._performance
 
@@ -263,3 +265,8 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
         self._performance = new_performance
         #self.episode_return = self._iterations / (new_performance*self.initial_performance)
 
+    @property
+    def min_performance(self):
+        if self._min_performance is None:
+            self._min_performance = 0.95 * self.initial_performance
+        return self._min_performance
