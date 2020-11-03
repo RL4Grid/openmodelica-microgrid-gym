@@ -8,16 +8,14 @@ import logging
 import os
 from functools import partial
 # from time import strftime, gmtime
-from operator import itemgetter
+from itertools import tee
 from typing import List
 
 import GPy
 import gym
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-import matplotlib.pyplot as plt
-import matplotlib
 
 from openmodelica_microgrid_gym.net import Network
 
@@ -37,12 +35,11 @@ params = {'backend': 'ps',
           'font.family': 'serif',
           'lines.linewidth': 1
           }
-#matplotlib.rcParams.update(params)
+# matplotlib.rcParams.update(params)
 
-from openmodelica_microgrid_gym import Agent
 from openmodelica_microgrid_gym.agents import SafeOptAgent
 from openmodelica_microgrid_gym.agents.util import MutableFloat, MutableParams
-from openmodelica_microgrid_gym.aux_ctl import PI_params, DroopParams, MultiPhaseDQCurrentSourcingController
+from openmodelica_microgrid_gym.aux_ctl import PI_params, MultiPhaseDQCurrentSourcingController
 from openmodelica_microgrid_gym.env import PlotTmpl
 from openmodelica_microgrid_gym.env.physical_testbench import TestbenchEnv
 from openmodelica_microgrid_gym.env.stochastic_components import Load, Noise
@@ -105,7 +102,7 @@ class Reward:
             self._idx = nested_map(
                 lambda n: obs.index(n),
                 [[f'lc.inductor{k}.i' for k in '123'], 'master.phase', [f'master.SPI{k}' for k in 'dq0']])
-                #[[f'master.CVI{k}' for k in 'dq0'],[f'master.SPI{k}' for k in 'dq0']])
+            # [[f'master.CVI{k}' for k in 'dq0'],[f'master.SPI{k}' for k in 'dq0']])
 
     def rew_fun(self, cols: List[str], data: np.ndarray) -> float:
         """
@@ -126,10 +123,11 @@ class Reward:
 
         # setpoints
         ISPdq0_master = data[idx[2]]  # setting dq reference
-        ISPabc_master = dq0_to_abc(ISPdq0_master, phase)#+0.417e-4*50)  # convert dq set-points into three-phase abc coordinates
+        ISPabc_master = dq0_to_abc(ISPdq0_master,
+                                   phase)  # +0.417e-4*50)  # convert dq set-points into three-phase abc coordinates
 
-        #Idq0_master = data[idx[0]]
-        #ISPdq0_master = data[idx[1]]  # convert dq set-points into three-phase abc coordinates
+        # Idq0_master = data[idx[0]]
+        # ISPdq0_master = data[idx[1]]  # convert dq set-points into three-phase abc coordinates
 
         # control error = mean-root-error (MRE) of reference minus measurement
         # (due to normalization the control error is often around zero -> compared to MSE metric, the MRE provides
@@ -142,6 +140,13 @@ class Reward:
         return -error.squeeze()
 
 
+def pairwise(iterable):
+    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+    a, b = tee(iterable)
+    next(b, None)
+    return zip(a, b)
+
+
 def cal_J_min(phase_shift, amp_dev):
     """
     Calulated the miminum performance for safeopt
@@ -149,18 +154,27 @@ def cal_J_min(phase_shift, amp_dev):
 
     ph_list = [phase_shift, 0]
     amp_list = [1, amp_dev]
-    return_Jmin = np.zeros(len(ph_list))
-    t = np.linspace(0, max_episode_steps*delta_t, max_episode_steps)
+    return_Jmin = np.empty(len(ph_list))
+    t = np.linspace(0, max_episode_steps * delta_t, max_episode_steps)
+
+    grad = 1e-1
+    irefs = [0, i_ref1[0], i_ref2[0]]
+    ts = [0, max_episode_steps // 2, max_episode_steps]
 
     for l in range(len(ph_list)):
+        amplitude = np.concatenate(
+            [np.minimum(
+                r0 + grad * np.arange(0, t1 - t0),  # ramp up phase
+                np.full(t1 - t0, r1)  # max amplitude
+            ) for (r0, t0), (r1, t1) in pairwise(zip(irefs, ts))])
+        # pd.Series(amplitude).plot()
+        Mess = amp_list[l] * amplitude * np.cos(2 * np.pi * 50 * t + (ph_list[l] * np.pi / 180))
+        SP = amplitude * np.cos(2 * np.pi * 50 * t)
 
-        amplitude = np.concatenate((i_ref1[0] * np.ones(int(max_episode_steps/2)), i_ref2[0] * np.ones(int(max_episode_steps/2))))
-        Mess = amp_list[l]*amplitude*np.cos(2*np.pi*50*t + (ph_list[l]*np.pi/180))
-        SP = amplitude*np.cos(2*np.pi*50*t)
-
-        return_Jmin[l] = -np.sum((np.abs((SP - Mess)) / iLimit) ** 0.5, axis=0) / 1000   # 3* -> for 3 phases
+        return_Jmin[l] = -np.sum((np.abs((SP - Mess)) / iLimit) ** 0.5, axis=0) / 1000  # 3* -> for 3 phases
 
     return max(return_Jmin)
+
 
 if __name__ == '__main__':
 
@@ -186,23 +200,20 @@ if __name__ == '__main__':
     # For 2D example, choose Kp and Ki as mutable parameters (below) and define bounds and lengthscale for both of them
     if adjust == 'Kpi':
         # 60 V
-        #bounds = [(0.001, 1), (0.001, 700)]
-        #lengthscale = [0.2, 200.]  #
+        # bounds = [(0.001, 1), (0.001, 700)]
+        # lengthscale = [0.2, 200.]  #
 
         # 700 V
         bounds = [(0.001, 0.1), (0.001, 400)]
         lengthscale = [0.015, 100.]  #
-        #lengthscale = [0.015, 40.]  #
-
+        # lengthscale = [0.015, 40.]  #
 
         # lengthscale = [0.02, 100.] #
         # Conservative
-        #bounds = [(0.0, 0.035), (0, 75)]
-        #lengthscale = [0.015, 20.]
+        # bounds = [(0.0, 0.035), (0, 75)]
+        # lengthscale = [0.015, 20.]
         # bounds = [(0.0, 0.08), (0, 120)]
         # lengthscale = [0.015, 20.]
-
-
 
     df_len = pd.DataFrame({'lengthscale': lengthscale,
                            'bounds': bounds,
@@ -248,21 +259,21 @@ if __name__ == '__main__':
         mutable_params = dict(currentI=MutableFloat(3))
         mutable_params = dict(currentI=MutableFloat(10))
         current_dqp_iparams = PI_params(kP=0.004, kI=mutable_params['currentI'], limits=(-1, 1))
-        #current_dqp_iparams = PI_params(kP=0.034, kI=mutable_params['currentI'], limits=(-1, 1))
+        # current_dqp_iparams = PI_params(kP=0.034, kI=mutable_params['currentI'], limits=(-1, 1))
 
     # For 2D example, choose Kp and Ki as mutable parameters
     elif adjust == 'Kpi':
         # For 60V
-        #mutable_params = dict(currentP=MutableFloat(0.4), currentI=MutableFloat(118))
+        # mutable_params = dict(currentP=MutableFloat(0.4), currentI=MutableFloat(118))
 
         # For vDC = 600 V
         mutable_params = dict(currentP=MutableFloat(0.04), currentI=MutableFloat(11.8))
 
-        #mutable_params = dict(currentP=MutableFloat(0.13), currentI=MutableFloat(10))
-        #mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(750))
+        # mutable_params = dict(currentP=MutableFloat(0.13), currentI=MutableFloat(10))
+        # mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(750))
 
         # conservative
-        #mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
+        # mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
 
         current_dqp_iparams = PI_params(kP=mutable_params['currentP'], kI=mutable_params['currentI'],
                                         limits=(-1, 1))
@@ -283,7 +294,7 @@ if __name__ == '__main__':
                          kernel,
                          dict(bounds=bounds, noise_var=noise_var, prior_mean=prior_mean, safe_threshold=safe_threshold,
                               explore_threshold=explore_threshold), [ctrl],
-                         dict(master=[[f'lc.inductor{k}.i' for k in '123'],i_ref]), history=FullHistory(),
+                         dict(master=[[f'lc.inductor{k}.i' for k in '123'], i_ref]), history=FullHistory(),
                          min_performance=J_min
                          )
 
@@ -332,10 +343,10 @@ if __name__ == '__main__':
         # Defining unbalanced loads sampling from Gaussian distribution with sdt = 0.2*mean
         r_load = Load(R, 0.1 * R, balanced=balanced_load, tolerance=0.1)
         l_load = Load(L, 0.1 * L, balanced=balanced_load, tolerance=0.1)
-        #i_noise = Noise([0, 0, 0], [0.0023, 0.0015, 0.0018], 0.0005, 0.32)
+        # i_noise = Noise([0, 0, 0], [0.0023, 0.0015, 0.0018], 0.0005, 0.32)
 
-        #r_load = Load(R, 0 * R, balanced=balanced_load)
-        #l_load = Load(L, 0 * L, balanced=balanced_load)
+        # r_load = Load(R, 0 * R, balanced=balanced_load)
+        # l_load = Load(L, 0 * L, balanced=balanced_load)
         i_noise = Noise([0, 0, 0], [0.0, 0.0, 0.0], 0.0, 0.0)
 
 
@@ -354,8 +365,8 @@ if __name__ == '__main__':
             ax.set_xlabel(r'$t\,/\,\mathrm{s}$')
             ax.set_ylabel('$i_{\mathrm{abc}}\,/\,\mathrm{A}$')
             ax.grid(which='both')
-            #plt.xlim(0.02, 0.0205)
-            #plt.ylim(-5, -3)
+            # plt.xlim(0.02, 0.0205)
+            # plt.ylim(-5, -3)
             # plt.legend(['Measurement', None , None, 'Setpoint', None, None], loc='best')
             plt.legend(ax.lines[::3], ('Measurement', 'Setpoint'), loc='best')
             # plt.legend(loc='best')
@@ -503,7 +514,7 @@ if __name__ == '__main__':
             ax.set_xlabel(r'$K_\mathrm{p}\,/\,\mathrm{(VA^{-1})}$')
             ax.get_figure().axes[1].set_ylabel(r'$J$')
             plt.title('Lengthscale = {}; balanced = '.format(lengthscale, balanced_load))
-            #ax.plot([mutable_params['currentP'].val, mutable_params['currentP'].val], bounds[1], 'k-', zorder=1,
+            # ax.plot([mutable_params['currentP'].val, mutable_params['currentP'].val], bounds[1], 'k-', zorder=1,
             #        lw=4,
             #        alpha=.5)
         best_agent_plt.show()
