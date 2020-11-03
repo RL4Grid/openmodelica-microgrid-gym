@@ -73,7 +73,7 @@ class MonteCarloRunner:
                     self.agent.observe(r, False)
                     act = self.agent.act(obs)
                     self.env.measurement = self.agent.measurement
-                    self.env.history.amend(self.agent.measurement, (-len(self.agent.measurement),None))
+                    self.env.history.amend(self.agent.measurement, (len(self.env.history.cols)-len(self.agent.measurement),None))
                     obs, r, done, info = self.env.step(act)
                     r_vec[p] = r
                     self.env.render()
@@ -107,7 +107,7 @@ class MonteCarloRunner:
                         self.agent.prepare_episode()
 
                         break
-
+                """
                 plt.plot(t, r_vec)
                 plt.ylabel('Reward')
                 plt.grid(True)
@@ -119,17 +119,17 @@ class MonteCarloRunner:
                 plt.grid(True)
                 plt.savefig('Ki_rewTest'+'/cumRew_abc_ohneBuffer{}.pdf'.format(m))
                 plt.show()
-
+                """
 
                 _, env_fig = self.env.close()
 
                 # vor break?
-                if (m == 0 and i == 0):  # or self.agent.has_improved:
+                if (m == 0 and i == 0) or self.agent.has_improved:
                     self.run_data['best_env_plt'] = env_fig
                     self.run_data['best_episode_idx'] = i
                     self.agent.last_best_performance = self.agent.performance
 
-                if (m == 0 and i == 0):  # or self.agent.has_worsened:
+                if (m == 0 and i == 0) or self.agent.has_worsened:
                     self.run_data['worst_env_plt'] = env_fig
                     self.run_data['worst_episode_idx'] = i
                     self.agent.last_worst_performance = self.agent.performance
