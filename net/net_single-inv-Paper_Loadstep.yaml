@@ -1,5 +1,5 @@
-v_nom: 100
-freq_nom: 50
+v_nom: 169.7
+freq_nom: 60
 ts: 1e-4
 
 components:
@@ -14,7 +14,8 @@ components:
     out:
       v: [lc.capacitor1.v, lc.capacitor2.v, lc.capacitor3.v]
       i: [lc.inductor1.i, lc.inductor2.i, lc.inductor3.i, lc.capacitor1.i,
-          lc.capacitor2.i, lc.capacitor3.i]
+          lc.capacitor2.i, lc.capacitor3.i,
+         inverter1.gain1.y]
 
     # iref: [0,0,0]
     # vref: [1,0,0]
@@ -25,4 +26,3 @@ components:
     #resistor1.R: 10
     out:
       i: [ .resistor1.R, .resistor2.R, .resistor3.R, .resistor1.i, .resistor2.i, .resistor3.i ]
-

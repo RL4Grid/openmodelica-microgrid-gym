@@ -8,6 +8,7 @@ import logging
 from functools import partial
 from itertools import repeat
 from time import strftime, gmtime
+from itertools import tee
 from typing import List
 import os
 
@@ -31,10 +32,10 @@ from openmodelica_microgrid_gym.execution.runner_hardware import RunnerHardware
 from openmodelica_microgrid_gym.net import Network
 from openmodelica_microgrid_gym.util import dq0_to_abc, nested_map, FullHistory
 
-include_simulate = False
+include_simulate = True
 show_plots = True
 balanced_load = False
-do_measurement = True
+do_measurement = False
 
 # If True: Results are stored to directory mentioned in: REBASE to DEV after MERGE #60!!
 safe_results = False
@@ -42,16 +43,16 @@ safe_results = False
 # Simulation definitions
 net = Network.load('../net/net_single-inv-Paper_Loadstep.yaml')
 delta_t = 1e-4  # simulation time step size / s
-max_episode_steps = 2000  # number of simulation steps per episode
+max_episode_steps = 1000#2000  # number of simulation steps per episode
 num_episodes = 1  # number of simulation episodes (i.e. SafeOpt iterations)
 n_MC = 1
 v_DC = 600  # DC-link voltage / V; will be set as model parameter in the FMU
-nomFreq = 50  # nominal grid frequency / Hz
-nomVoltPeak = 100  # 230 * 1.414  # nominal grid voltage / V
-iLimit = 30  # inverter current limit / A
-iNominal = 20  # nominal inverter current / A
-vLimit = 1000  # inverter current limit / A
-vNominal = 600  # nominal inverter current / A
+nomFreq = 60  # nominal grid frequency / Hz
+nomVoltPeak = 169.7  # 230 * 1.414  # nominal grid voltage / V
+iLimit = 20  # inverter current limit / A
+iNominal = 14  # nominal inverter current / A
+vNominal = 169.7  # nominal inverter current / A
+vLimit = 1000#vNominal*2#1.25  # inverter current limit / A
 mu = 2  # factor for barrier function (see below)
 DroopGain = 0.0  # virtual droop gain for active power / W/Hz
 QDroopGain = 0.0  # virtual droop gain for reactive power / VAR/V
@@ -61,12 +62,12 @@ QDroopGain = 0.0  # virtual droop gain for reactive power / VAR/V
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'Paper_Vctrl_obs_sim_2')
+save_folder = os.path.join(current_directory, r'V_sim1')
 os.makedirs(save_folder, exist_ok=True)
 
 L_filt = 2.3e-3  # / H
 R_filt = 400e-3  # 170e-3  # 585e-3  # / Ohm
-C_filt = 16e-6  # 48e-6#13.6e-6   # / F
+C_filt = 10e-6  # 48e-6#13.6e-6   # / F
 # C_filt = 10e-6   # / F
 R = nomVoltPeak / 7.5  # 23*np.sqrt(2)#7.15  # 170e-3  # 585e-3  # / Ohm
 
@@ -78,6 +79,9 @@ gain_plant = 1 / R_filt
 Tn = tau_plant  # Due to compensate
 Kp_init = tau_plant / (2 * delta_t * gain_plant * v_DC)
 Ki_init = Kp_init / (Tn)
+
+phase_shift = 5
+amp_dev = 1.1
 
 # Observer matrices
 A = np.array([[-R_filt, -1 / L_filt, 0],
@@ -99,24 +103,24 @@ C = np.array([[1, 0, 0],
 # L_vc_io = -557.6191  #-148.1438
 
 # # # for C = 10e-6:!!!!
-# L_iL_iL = 6e3       #4.0133e+03
-# L_vc_iL = -433.3958   #-316.2432     # influence from delta_y_vc onto xdot = iL
-#
-# L_iL_vc = 9.9615e4  #7.2952e+04
-# L_vc_vc = 1e4       #6.9871e+03
-#
-# L_iL_io = 8.8765   #-1.6880e+03
-# L_vc_io = -409.99
+L_iL_iL = 6e3       #4.0133e+03
+L_vc_iL = -433.3958   #-316.2432     # influence from delta_y_vc onto xdot = iL
+
+L_iL_vc = 9.9615e4  #7.2952e+04
+L_vc_vc = 1e4       #6.9871e+03
+
+L_iL_io = 8.8765   #-1.6880e+03
+L_vc_io = -409.99
 
 # # # for C = 16e-6:!!!!
-L_iL_iL = 6e3  # 4.0133e+03
-L_vc_iL = -432.3164  # -316.2432     # influence from delta_y_vc onto xdot = iL
+#L_iL_iL = 6e3  # 4.0133e+03
+#L_vc_iL = -432.3164  # -316.2432     # influence from delta_y_vc onto xdot = iL
 
-L_iL_vc = 6.2232e4  # 7.2952e+04
-L_vc_vc = 1e4  # 6.9871e+03
+#L_iL_vc = 6.2232e4  # 7.2952e+04
+#L_vc_vc = 1e4  # 6.9871e+03
 
-L_iL_io = 9.9694  # -1.6880e+03
-L_vc_io = -655.98
+#L_iL_io = 9.9694  # -1.6880e+03
+#L_vc_io = -655.98
 
 # for C = 13.6e-6*10:!!!!
 # L_iL_iL = 6e3       #4.0133e+03
@@ -152,6 +156,7 @@ L_vc_io = -655.98
 L = np.array([[L_iL_iL, L_vc_iL],
               [L_iL_vc, L_vc_vc],
               [L_iL_io, L_vc_io]])
+
 
 
 class Reward:
@@ -204,7 +209,59 @@ class Reward:
         return -error.squeeze()
 
 
+def pairwise(iterable):
+    "s -> (s0,s1), (s1,s2), (s2, s3), ..."
+    a, b = tee(iterable)
+    next(b, None)
+    return zip(a, b)
+
+def cal_J_min(phase_shift, amp_dev):
+    """
+    Calulated the miminum performance for safeopt
+    Best case error of all safe boundary scenarios is used (max) to indicate which typ of error tears
+    the safe boarder first (the weakest link in the chain)
+    """
+
+    ph_list = [phase_shift, 0]
+    amp_list = [1, amp_dev]
+    return_Jmin = np.empty(len(ph_list))
+    error_Jmin = np.empty(3)
+    ph_shift = [0, 120, 240]
+    t = np.linspace(0, max_episode_steps * delta_t, max_episode_steps)
+
+    # 0.0012 -> 120 steps -> 169/120
+    # risetime = 0.00015 -> 15 steps um auf 10A zu kommen: grade = 10/15
+    grad = 1.4#0.66#1e-1
+    irefs = [0, nomVoltPeak, nomVoltPeak]
+    ts = [0, max_episode_steps // 2, max_episode_steps]
+
+    for l in range(len(ph_list)):
+        for p in range(3):
+            amplitudeSP = np.concatenate([np.full(t1 - t0, r1)
+                for (r0, t0), (r1, t1) in pairwise(zip(irefs, ts))])
+            amplitude = np.concatenate(
+                [np.minimum(
+                    r0 + grad * np.arange(0, t1 - t0),  # ramp up phase
+                    np.full(t1 - t0, r1)  # max amplitude
+                ) for (r0, t0), (r1, t1) in pairwise(zip(irefs, ts))])
+            #pd.Series(amplitude).plot()
+            #plt.show()
+            Mess = amp_list[l] * amplitude * np.cos(2 * np.pi * 60 * t + (ph_list[l] * np.pi / 180) + (ph_shift[p] * np.pi / 180))
+            SP = amplitudeSP * np.cos(2 * np.pi * 60 * t + (ph_shift[p] * np.pi / 180))
+            error_Jmin[p] = -np.sum((np.abs((SP - Mess)) / iLimit) ** 0.5, axis=0) / max_episode_steps
+            #plt.plot(t, Mess)
+            #plt.plot(t, SP,'--')
+            #plt.grid()
+            #plt.show()
+
+        return_Jmin[l] = np.sum(error_Jmin) # Sum all 3 phases
+
+    return max(return_Jmin)
+
 if __name__ == '__main__':
+
+    J_min = cal_J_min(phase_shift, amp_dev)
+
     #####################################
     # Definitions for the GP
     prior_mean = 0  # 2  # mean factor of the GP prior mean which is multiplied with the first performance of the initial set
@@ -226,7 +283,7 @@ if __name__ == '__main__':
     # the initial performance: safe_threshold = 1.2 means: performance measurement for optimization are seen as
     # unsafe, if the new measured performance drops below 20 % of the initial performance of the initial safe (!)
     # parameter set
-    safe_threshold = 0.5
+    safe_threshold = 0
 
     # The algorithm will not try to expand any points that are below this threshold. This makes the algorithm stop
     # expanding points eventually.
@@ -246,14 +303,13 @@ if __name__ == '__main__':
     # mutable_params = dict(currentP=MutableFloat(10e-3), currentI=MutableFloat(10), voltageP=MutableFloat(0.05),
     #                      voltageI=MutableFloat(75))
 
-    #    mutable_params = dict(voltageP=MutableFloat(0.5), voltageI=MutableFloat(120))
-    # mutable_params = dict(voltageP=MutableFloat(0.03), voltageI=MutableFloat(12))
+    # Vdc = 600 V
+    mutable_params = dict(voltageP=MutableFloat(0.012), voltageI=MutableFloat(6.25))
 
-    # Vdc = 650 V
-    # mutable_params = dict(voltageP=MutableFloat(0.125), voltageI=MutableFloat(70.871))
-    # mutable_params = dict(voltageP=MutableFloat(0.005), voltageI=MutableFloat(7))
-    # Vdc = 250
-    mutable_params = dict(voltageP=MutableFloat(0.018), voltageI=MutableFloat(10))
+    #mutable_params = dict(voltageP=MutableFloat(0.02), voltageI=MutableFloat(20.25))
+
+    #mutable_params = dict(voltageP=MutableFloat(0.12), voltageI=MutableFloat(6.25))
+    #mutable_params = dict(voltageP=MutableFloat(0.12), voltageI=MutableFloat(50))
 
     voltage_dqp_iparams = PI_params(kP=mutable_params['voltageP'], kI=mutable_params['voltageI'],
                                     limits=(-iLimit, iLimit))
@@ -261,10 +317,12 @@ if __name__ == '__main__':
     # current_dqp_iparams = PI_params(kP=0.0062, kI=24.9, limits=(-1, 1))     # Best set from paper III-D
     # current_dqp_iparams = PI_params(kP=0.2, kI=33.3, limits=(-1, 1))     # Best set from paper III-D
 
-    # Vdc = 650 V
-    # current_dqp_iparams = PI_params(kP=0.017, kI=3, limits=(-1, 1))     # Best set from paper III-D
+    #Vdc = 600 V
+    kp_c = 0.04
+    ki_c = 11.8
+    current_dqp_iparams = PI_params(kP=kp_c, kI=ki_c, limits=(-1, 1))     # Best set from paper III-D
     # Vdc = 250
-    current_dqp_iparams = PI_params(kP=0.052346, kI=15.4, limits=(-1, 1))  # Best set from paper III-D
+    #current_dqp_iparams = PI_params(kP=0.052346, kI=15.4, limits=(-1, 1))  # Best set from paper III-D
 
     # Define the droop parameters for the inverter of the active power Watt/Hz (DroopGain), delta_t (0.005) used for the
     # filter and the nominal frequency
@@ -294,8 +352,9 @@ if __name__ == '__main__':
                          [ctrl],
                          dict(master=[[f'lc.inductor{k}.i' for k in '123'],
                                       [f'lc.capacitor{k}.v' for k in '123'],
+                                      [f'r_load.resistor{i}.i' for i in '123']
                                       ]),
-                         history=FullHistory()
+                         history=FullHistory(), min_performance=J_min
                          )
 
     if include_simulate:
@@ -361,8 +420,8 @@ if __name__ == '__main__':
         l_filt = Load(L_filt, 0.1 * L_filt, balanced=balanced_load)
         c_filt = Load(C_filt, 0.1 * C_filt, balanced=balanced_load)
         r_load = Load(R, 0.1 * R, balanced=balanced_load)
-        meas_noise = Noise([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                           [0.45, 0.39, 0.42, 0.0023, 0.0015, 0.0018, 0, 0, 0, 0, 0, 0, 0, 0, 0], 0.0, 0.5)
+        meas_noise = Noise([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                           [0.45, 0.39, 0.42, 0.0023, 0.0015, 0.0018, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 0.0, 0.5)
 
 
         # i_noise = Noise([0, 0, 0], [0.0023, 0.0015, 0.0018], 0.0005, 0.32)
@@ -504,11 +563,29 @@ if __name__ == '__main__':
                                     color=[['b', 'r', 'g'], ['b', 'r', 'g']],
                                     style=[[None], ['--']]
                                     ),
-                           # PlotTmpl([[f'r_load.resistor{i}.R' for i in '123']],
+                           PlotTmpl([[f'master.I_hat{i}' for i in 'dq0'], [f'master.CVi{s}' for s in 'dq0']],
+                                    callback=xylables_hat,
+                                    color=[['b', 'r', 'g'], ['b', 'r', 'g']],
+                                    style=[[None],['--']]
+                                    ),
+                           PlotTmpl([[f'master.SPI{i}' for i in 'dq0'], [f'master.I_hat{i}' for i in 'dq0']],
+                                    callback=xylables_dq0,
+                                    color=[['b', 'r', 'g'], ['b', 'r', 'g']],
+                                    style=[[None], ['--']]
+                                    ),
+                           PlotTmpl([[f'master.m{i}' for i in 'dq0'] ],
+                                    callback=xylables_mdq0
+                                    #color=[['b', 'r', 'g'], ['b', 'r', 'g']],
+                                    #style=[[None], ['--']]
+                                    ),
+                           #PlotTmpl([[f'r_load.resistor{i}.R' for i in '123']],
                            #          callback=xylables_R,
                            #          color=[['b', 'r', 'g']],
                            #          style=[[None]]
                            #          ),
+                           #PlotTmpl([[f'inverter1.gain1.y']],
+                           #         callback=xylables_R
+                           #         ),
                            # PlotTmpl([[f'master.I_hat{i}' for i in 'dq0'], [f'master.CVi{i}' for i in 'dq0'], ],
                            #          callback=xylables_hat,
                            #          color=[['b', 'r', 'g'], ['b', 'r', 'g']],
@@ -543,7 +620,7 @@ if __name__ == '__main__':
                                      },
                        net=net,
                        # model_path='../omg_grid/omg_grid.Grids.Paper_Loadstep.fmu',
-                       model_path='../fmu/grid.paper_loadstep.fmu',
+                       model_path='../omg_grid/grid.paper_loadstep.fmu',
                        # model_input=['i1p1', 'i1p2', 'i1p3'],
                        # model_output=dict(#rl=[['inductor1.i', 'inductor2.i', 'inductor3.i'],
                        # model_output=dict(lc=[['inductor1.i', 'inductor2.i', 'inductor3.i'],
@@ -628,7 +705,8 @@ if __name__ == '__main__':
         # Execution of the experiment
         # Using a runner to execute 'num_episodes' different episodes (i.e. SafeOpt iterations)
 
-        env = TestbenchEnvVoltage(num_steps=max_episode_steps, DT=1 / 10000, v_nominal=nomVoltPeak)
+        env = TestbenchEnvVoltage(num_steps=max_episode_steps, DT=1 / 10000, v_nominal=nomVoltPeak,
+                                  kP=kp_c, kI=ki_c, v_limit=vLimit)
         runner = RunnerHardware(agent, env)
 
         runner.run(num_episodes, visualise=True)

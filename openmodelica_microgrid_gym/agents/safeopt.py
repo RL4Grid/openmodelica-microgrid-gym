@@ -64,7 +64,7 @@ class SafeOptAgent(StaticControlAgent, EpisodicLearnerAgent):
         self.optimizer = None
         self._performance = None
         self._min_performance = min_performance
-        self.initial_performance = 1
+        self.initial_performance = min_performance/2
         self.last_best_performance = 0      # set to 0 due to in MC otherwise we do not get the best/worst before the
         # first update_params after the MC loop
         self.last_worst_performance = 0

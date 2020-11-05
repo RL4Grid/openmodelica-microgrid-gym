@@ -14,6 +14,7 @@ from typing import List
 import GPy
 import gym
 import matplotlib.pyplot as plt
+import matplotlib
 import numpy as np
 import pandas as pd
 
@@ -35,7 +36,7 @@ params = {'backend': 'ps',
           'font.family': 'serif',
           'lines.linewidth': 1
           }
-# matplotlib.rcParams.update(params)
+matplotlib.rcParams.update(params)
 
 from openmodelica_microgrid_gym.agents import SafeOptAgent
 from openmodelica_microgrid_gym.agents.util import MutableFloat, MutableParams
@@ -52,7 +53,7 @@ from openmodelica_microgrid_gym.util import dq0_to_abc, nested_map, FullHistory
 # - Ki: 1D example: Only the integral gain Ki of the PI controller is adjusted
 # - Kpi: 2D example: Kp and Ki are adjusted simultaneously
 
-adjust = 'Ki'
+adjust = 'Kpi'
 
 # Check if really only one simulation scenario was selected
 if adjust not in {'Kp', 'Ki', 'Kpi'}:
@@ -64,11 +65,11 @@ balanced_load = False
 do_measurement = False
 
 # If True: Results are stored to directory mentioned in: REBASE to DEV after MERGE #60!!
-safe_results = True
+safe_results = False
 
 # Files saves results and  resulting plots to the folder saves_VI_control_safeopt in the current directory
 current_directory = os.getcwd()
-save_folder = os.path.join(current_directory, r'Ki_rewTest')
+save_folder = os.path.join(current_directory, r'Kpi_MC_2')
 os.makedirs(save_folder, exist_ok=True)
 
 np.random.seed(1)
@@ -77,13 +78,13 @@ np.random.seed(1)
 net = Network.load('../net/net_single-inv-curr_Paper_SC.yaml')
 delta_t = 1e-4  # simulation time step size / s
 max_episode_steps = 1000  # number of simulation steps per episode
-num_episodes = 1  # number of simulation episodes (i.e. SafeOpt iterations)
-n_MC = 3  # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
-iLimit = 25  # inverter current limit / A
-iNominal = 15  # nominal inverter current / A
-mu = 4  # factor for barrier function (see below)
+num_episodes = 1 # number of simulation episodes (i.e. SafeOpt iterations)
+n_MC = 1  # number of Monte-Carlo samples for simulation - samples device parameters (e.g. L,R, noise) from
+iLimit = 20  # inverter current limit / A
+iNominal = 14  # nominal inverter current / A
+mu = 80#14  # factor for barrier function (see below)
 i_ref1 = np.array([10, 0, 0])  # exemplary set point i.e. id = 10, iq = 0, i0 = 0 / A
-i_ref2 = np.array([15, 0, 0])  # exemplary set point i.e. id = 15, iq = 0, i0 = 0 / A
+i_ref2 = np.array([14, 0, 0])  # exemplary set point i.e. id = 15, iq = 0, i0 = 0 / A
 
 phase_shift = 5
 amp_dev = 1.1
@@ -150,28 +151,42 @@ def pairwise(iterable):
 def cal_J_min(phase_shift, amp_dev):
     """
     Calulated the miminum performance for safeopt
+    Best case error of all safe boundary scenarios is used (max) to indicate which typ of error tears
+    the safe boarder first (the weakest link in the chain)
     """
 
     ph_list = [phase_shift, 0]
     amp_list = [1, amp_dev]
     return_Jmin = np.empty(len(ph_list))
+    error_Jmin = np.empty(3)
+    ph_shift = [0, 120, 240]
     t = np.linspace(0, max_episode_steps * delta_t, max_episode_steps)
 
-    grad = 1e-1
+    # risetime = 0.0015 -> 15 steps um auf 10A zu kommen: grade = 10/15
+    grad = 0.66#1e-1
     irefs = [0, i_ref1[0], i_ref2[0]]
     ts = [0, max_episode_steps // 2, max_episode_steps]
 
     for l in range(len(ph_list)):
-        amplitude = np.concatenate(
-            [np.minimum(
-                r0 + grad * np.arange(0, t1 - t0),  # ramp up phase
-                np.full(t1 - t0, r1)  # max amplitude
-            ) for (r0, t0), (r1, t1) in pairwise(zip(irefs, ts))])
-        # pd.Series(amplitude).plot()
-        Mess = amp_list[l] * amplitude * np.cos(2 * np.pi * 50 * t + (ph_list[l] * np.pi / 180))
-        SP = amplitude * np.cos(2 * np.pi * 50 * t)
+        for p in range(3):
+            amplitudeSP = np.concatenate([np.full(t1 - t0, r1)
+                for (r0, t0), (r1, t1) in pairwise(zip(irefs, ts))])
+            amplitude = np.concatenate(
+                [np.minimum(
+                    r0 + grad * np.arange(0, t1 - t0),  # ramp up phase
+                    np.full(t1 - t0, r1)  # max amplitude
+                ) for (r0, t0), (r1, t1) in pairwise(zip(irefs, ts))])
+            #pd.Series(amplitude).plot()
+            #plt.show()
+            Mess = amp_list[l] * amplitude * np.cos(2 * np.pi * 50 * t + (ph_list[l] * np.pi / 180) + (ph_shift[p] * np.pi / 180))
+            SP = amplitudeSP * np.cos(2 * np.pi * 50 * t + (ph_shift[p] * np.pi / 180))
+            error_Jmin[p] = -np.sum((np.abs((SP - Mess)) / iLimit) ** 0.5, axis=0) / max_episode_steps
+            plt.plot(t, Mess)
+            plt.plot(t, SP,'--')
+            plt.grid()
+            plt.show()
 
-        return_Jmin[l] = -np.sum((np.abs((SP - Mess)) / iLimit) ** 0.5, axis=0) / 1000  # 3* -> for 3 phases
+        return_Jmin[l] = np.sum(error_Jmin) # Sum all 3 phases
 
     return max(return_Jmin)
 
@@ -188,14 +203,15 @@ if __name__ == '__main__':
     bounds = None
     lengthscale = None
     if adjust == 'Kp':
-        bounds = [(0.04, 0.12)]  # bounds on the input variable Kp
-        lengthscale = [.01]  # length scale for the parameter variation [Kp] for the GP
+        bounds = [(0.0001, 0.1)]  # bounds on the input variable Kp
+        lengthscale = [.025]  # length scale for the parameter variation [Kp] for the GP
 
     # For 1D example, if Ki should be adjusted
     if adjust == 'Ki':
         bounds = [(0, 280)]  # bounds on the input variable Ki
-        bounds = [(0, 800)]  # bounds on the input variable Ki
-        lengthscale = [400]  # length scale for the parameter variation [Ki] for the GP
+        bounds = [(0, 100)]  # bounds on the input variable Ki
+        # bounds = [(0, 800)]  # bounds on the input variable Ki
+        lengthscale = [50]  # length scale for the parameter variation [Ki] for the GP
 
     # For 2D example, choose Kp and Ki as mutable parameters (below) and define bounds and lengthscale for both of them
     if adjust == 'Kpi':
@@ -203,17 +219,15 @@ if __name__ == '__main__':
         # bounds = [(0.001, 1), (0.001, 700)]
         # lengthscale = [0.2, 200.]  #
 
-        # 700 V
-        bounds = [(0.001, 0.1), (0.001, 400)]
-        lengthscale = [0.015, 100.]  #
-        # lengthscale = [0.015, 40.]  #
+        # 600 V
+        bounds = [(0.001, 0.1), (1, 280)]
+        lengthscale = [0.02, 50.]  #
+        # Mess
+        #lengthscale = [0.015, 40.]  #
 
-        # lengthscale = [0.02, 100.] #
-        # Conservative
-        # bounds = [(0.0, 0.035), (0, 75)]
-        # lengthscale = [0.015, 20.]
-        # bounds = [(0.0, 0.08), (0, 120)]
-        # lengthscale = [0.015, 20.]
+        # conservative
+        #lengthscale = [0.01, 30.]  #
+
 
     df_len = pd.DataFrame({'lengthscale': lengthscale,
                            'bounds': bounds,
@@ -234,7 +248,7 @@ if __name__ == '__main__':
     # Factor to multiply with the initial reward to give back an abort_reward-times higher negative reward in case of
     # limit exceeded
     # has to be negative due to normalized performance (regarding J_init = 1)
-    abort_reward = -10
+    abort_reward = 100*J_min
 
     # Definition of the kernel
     kernel = GPy.kern.Matern32(input_dim=len(bounds), variance=prior_var, lengthscale=lengthscale, ARD=True)
@@ -246,10 +260,10 @@ if __name__ == '__main__':
     if adjust == 'Kp':
         # mutable_params = parameter (Kp gain of the current controller of the inverter) to be optimized using
         # the SafeOpt algorithm
-        mutable_params = dict(currentP=MutableFloat(0.06))
+        mutable_params = dict(currentP=MutableFloat(0.04))
 
         # Define the PI parameters for the current controller of the inverter
-        current_dqp_iparams = PI_params(kP=mutable_params['currentP'], kI=10, limits=(-1, 1))
+        current_dqp_iparams = PI_params(kP=mutable_params['currentP'], kI=12, limits=(-1, 1))
 
     # For 1D example, if Ki should be adjusted
     elif adjust == 'Ki':
@@ -259,7 +273,7 @@ if __name__ == '__main__':
         mutable_params = dict(currentI=MutableFloat(3))
         mutable_params = dict(currentI=MutableFloat(10))
         current_dqp_iparams = PI_params(kP=0.004, kI=mutable_params['currentI'], limits=(-1, 1))
-        # current_dqp_iparams = PI_params(kP=0.034, kI=mutable_params['currentI'], limits=(-1, 1))
+        #current_dqp_iparams = PI_params(kP=0.04, kI=mutable_params['currentI'], limits=(-1, 1))
 
     # For 2D example, choose Kp and Ki as mutable parameters
     elif adjust == 'Kpi':
@@ -268,9 +282,10 @@ if __name__ == '__main__':
 
         # For vDC = 600 V
         mutable_params = dict(currentP=MutableFloat(0.04), currentI=MutableFloat(11.8))
+        #mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
 
-        # mutable_params = dict(currentP=MutableFloat(0.13), currentI=MutableFloat(10))
-        # mutable_params = dict(currentP=MutableFloat(0.034), currentI=MutableFloat(750))
+        #mutable_params = dict(currentP=MutableFloat(0.068), currentI=MutableFloat(12))
+        #mutable_params = dict(currentP=MutableFloat(0.04), currentI=MutableFloat(230))
 
         # conservative
         # mutable_params = dict(currentP=MutableFloat(0.004), currentI=MutableFloat(10))
@@ -280,7 +295,7 @@ if __name__ == '__main__':
 
     # Define a current sourcing inverter as master inverter using the pi and droop parameters from above
     ctrl = MultiPhaseDQCurrentSourcingController(current_dqp_iparams, delta_t,
-                                                 undersampling=1, name='master')
+                                                 undersampling=1, name='master', f_nom=60)
 
     i_ref = MutableParams([MutableFloat(f) for f in i_ref1])
 
@@ -343,11 +358,11 @@ if __name__ == '__main__':
         # Defining unbalanced loads sampling from Gaussian distribution with sdt = 0.2*mean
         r_load = Load(R, 0.1 * R, balanced=balanced_load, tolerance=0.1)
         l_load = Load(L, 0.1 * L, balanced=balanced_load, tolerance=0.1)
-        # i_noise = Noise([0, 0, 0], [0.0023, 0.0015, 0.0018], 0.0005, 0.32)
+        i_noise = Noise([0, 0, 0], [0.0023, 0.0015, 0.0018], 0.0005, 0.32)
 
-        # r_load = Load(R, 0 * R, balanced=balanced_load)
-        # l_load = Load(L, 0 * L, balanced=balanced_load)
-        i_noise = Noise([0, 0, 0], [0.0, 0.0, 0.0], 0.0, 0.0)
+        #r_load = Load(R, 0 * R, balanced=balanced_load)
+        #l_load = Load(L, 0 * L, balanced=balanced_load)
+        #i_noise = Noise([0, 0, 0], [0.0, 0.0, 0.0], 0.0, 0.0)
 
 
         def reset_loads():
@@ -539,8 +554,8 @@ if __name__ == '__main__':
         # Execution of the experiment
         # Using a runner to execute 'num_episodes' different episodes (i.e. SafeOpt iterations)
 
-        env = TestbenchEnv(num_steps=max_episode_steps, DT=1 / 10000, ref=10, ref2=15,
-                           i_limit=iLimit, i_nominal=iNominal)
+        env = TestbenchEnv(num_steps=max_episode_steps, DT=1 / 10000, ref=10, ref2=14,
+                           i_limit=iLimit, i_nominal=iNominal, f_nom=60, mu=mu)
         runner = RunnerHardware(agent, env)
 
         runner.run(num_episodes, visualise=True, save_folder=save_folder)

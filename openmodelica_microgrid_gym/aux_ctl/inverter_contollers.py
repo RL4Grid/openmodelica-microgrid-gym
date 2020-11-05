@@ -220,7 +220,7 @@ class MultiPhaseDQ0PIPIController(VoltageCtl):
         self._lastMabc = np.zeros(N_PHASE)
         super().reset()
 
-    def control(self, currentCV: np.ndarray, voltageCV: np.ndarray, **kwargs):
+    def control(self, currentCV: np.ndarray, voltageCV: np.ndarray, Io_abc, **kwargs):
         """
         Performs the calculations for a discrete step of the controller
 
@@ -240,6 +240,7 @@ class MultiPhaseDQ0PIPIController(VoltageCtl):
 
         # Transform the feedback to the dq0 frame
         CVIdq0 = abc_to_dq0(currentCV, phase)
+        Iodq0 = abc_to_dq0(Io_abc, phase)
         CVVdq0 = abc_to_dq0(voltageCV, phase)
 
         # Voltage controller calculations
@@ -262,7 +263,8 @@ class MultiPhaseDQ0PIPIController(VoltageCtl):
         i_dq0_out_estimat = abc_to_dq0(iabc_out_etimate, phase)
 
         # Current controller calculations
-        MVdq0 = self._currentPI.step(SPIdq0 + i_dq0_out_estimat, CVIdq0)
+        #MVdq0 = self._currentPI.step(SPIdq0 + i_dq0_out_estimat, CVIdq0)
+        MVdq0 = self._currentPI.step(SPIdq0 + Iodq0, CVIdq0)
         #MVdq0 = self._currentPI.step(SPIdq0 , CVIdq0)
         MVabc = np.clip(dq0_to_abc(MVdq0, phase), -1, 1)
         self._lastMabc = MVabc

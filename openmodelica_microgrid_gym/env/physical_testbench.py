@@ -21,7 +21,7 @@ class TestbenchEnv(gym.Env):
                  DT: float = 1/20000, executable_script_name: str = 'my_first_hps' ,num_steps: int = 1000,
                  kP: float = 0.01, kI: float = 5.0, kPV: float = 0.01, kIV: float = 5.0,  ref: float = 10.0,
                  ref2: float =12, f_nom: float = 50.0, i_limit: float = 25,
-                 i_nominal: float = 15, v_nominal: float = 20):
+                 i_nominal: float = 15, v_nominal: float = 20, mu = 2):
 
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -45,6 +45,7 @@ class TestbenchEnv(gym.Env):
         self.i_limit = i_limit
         self.i_nominal = i_nominal
         self.v_nominal = v_nominal
+        self.mu = mu
 
     @staticmethod
     def __decode_result(ssh_result):
@@ -79,7 +80,7 @@ class TestbenchEnv(gym.Env):
         :param Iabc_SP:
         :return: Error as negative reward
         """
-        mu = 2
+        #mu = 2
 
         # setpoints
         #Iabc_SP = dq0_to_abc(Idq0_SP, phase)  # convert dq set-points into three-phase abc coordinates
@@ -89,7 +90,7 @@ class TestbenchEnv(gym.Env):
         #  better, i.e. more significant,  gradients)
         # plus barrier penalty for violating the current constraint
         error =  (np.sum((np.abs((Iabc_SP - Iabc_meas)) / self.i_limit) ** 0.5, axis=0) \
-                + -np.sum(mu * np.log(1 - np.maximum(np.abs(Iabc_meas) - self.i_nominal, 0) / \
+                + -np.sum(self.mu * np.log(1 - np.maximum(np.abs(Iabc_meas) - self.i_nominal, 0) / \
                 (self.i_limit - self.i_nominal)), axis=0) \
                 )/ self.max_episode_steps
 

@@ -20,7 +20,7 @@ class TestbenchEnvVoltage(gym.Env):
     def __init__(self, host: str = '131.234.172.139', username: str = 'root', password: str = 'omg',
                  DT: float = 1/20000, executable_script_name: str = 'my_first_hps' ,num_steps: int = 1000,
                  kP: float = 0.052346, kI: float = 15.4072 , kPV: float = 0.018619 , kIV: float = 10.0,  ref: float = 10.0, ref2: float =12, f_nom: float = 50.0, i_limit: float = 30,
-                 i_nominal: float = 20, v_nominal: float = 20):
+                 i_nominal: float = 20, v_nominal: float = 20, v_limit = 30):
 
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -39,16 +39,19 @@ class TestbenchEnvVoltage(gym.Env):
         self.ref2 = ref2
         self.f_nom = f_nom
         self.data = np.array(list())
+        self.data_obs = np.array(list())
         self.current_step = 0
         self.done = False
         self.i_limit = i_limit
         self.i_nominal = i_nominal
         self.v_nominal = v_nominal
+        self.v_limit = v_limit
 
     @staticmethod
     def __decode_result(ssh_result):
 
         result = list()
+        resultObs = list()
         for line in ssh_result.read().splitlines():
 
             temp = line.decode("utf-8").split(",")
@@ -59,11 +62,40 @@ class TestbenchEnvVoltage(gym.Env):
                 floats = [float(i) for i in temp]
                 # print(floats)
                 result.append(floats)
+            elif len(temp) == 9:
+                # print(temp)
+                floatsObs = [float(i) for i in temp]
+                # print(floatsObs)
+                resultObs.append(floatsObs)
+                # count=count+1
             elif len(temp) != 1:
                 print(temp)
 
         N = (len(result))
         decoded_result = np.array(result)
+
+        return [decoded_result, np.array(resultObs)]
+
+    @staticmethod
+    def __decode_result_obs(ssh_result):
+
+
+        resultObs = list()
+        for line in ssh_result.read().splitlines():
+
+            temp = line.decode("utf-8").split(",")
+
+            if len(temp) == 9:
+                # print(temp)
+                floatsObs = [float(i) for i in temp]
+                # print(floatsObs)
+                resultObs.append(floatsObs)
+                # count=count+1
+            elif len(temp) != 1:
+                print(temp)
+
+        N = (len(resultObs))
+        decoded_result = np.array(resultObs)
 
         return decoded_result
 
@@ -88,8 +120,8 @@ class TestbenchEnvVoltage(gym.Env):
         #  better, i.e. more significant,  gradients)
         # plus barrier penalty for violating the current constraint
         #error = np.sum((np.abs((Vabc_SP - vabc_meas)) / self.v_nominal) ** 0.5, axis=0) #+\
-        error = np.sum((np.abs((vsp_abc - vabc_meas)) / self.v_nominal) ** 0.5, axis=0) +\
-                -np.sum(mu * np.log(1 - np.maximum(np.abs(vsp_abc) - 25, 0) / (50 - 25)), axis=0) \
+        error = np.sum((np.abs((vsp_abc - vabc_meas)) / self.v_limit) ** 0.5, axis=0) +\
+                -np.sum(mu * np.log(1 - np.maximum(np.abs(vsp_abc) - self.v_nominal, 0) / (self.v_limit - self.v_nominal)), axis=0) \
                 * self.max_episode_steps
 
 
@@ -138,7 +170,8 @@ class TestbenchEnvVoltage(gym.Env):
 
         ssh_stdin, ssh_stdout, ssh_stderr = self.ssh.exec_command(str_command)
 
-        self.data = self.__decode_result(ssh_stdout)
+        self.data, self.data_obs = self.__decode_result(ssh_stdout)
+        #self.data_obs = self.__decode_result_obs(ssh_stdout)
 
         self.current_step = 0
         self.done = False
@@ -174,7 +207,7 @@ class TestbenchEnvVoltage(gym.Env):
 
         return temp_data, reward, self.done, info
 
-    def render(self, J):
+    def render(self, J, save_folder):
 
         N = (len(self.data))
         t = np.linspace(0, N * self.DT, N)
@@ -210,6 +243,19 @@ class TestbenchEnvVoltage(gym.Env):
         V_Q = self.data[:, 28]
         V_0 = self.data[:, 29]
         Ph = self.data[:, 30]
+
+        """
+        If_A = self.data[:, 31];
+        If_B = self.data[:, 32];
+        If_C = self.data[:, 33];
+        Vc_A = self.data[:, 34];
+        Vc_B = self.data[:, 35];
+        Vc_C = self.data[:, 36];
+        """
+        Io_A = self.data_obs[:, 6]
+        Io_B = self.data_obs[:, 7]
+        Io_C = self.data_obs[:, 8]
+
 
         # store measurment to dataframe
         df = pd.DataFrame({'V_A': self.data[:, 0],
@@ -274,7 +320,7 @@ class TestbenchEnvVoltage(gym.Env):
         #time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         #fig.savefig('hardwareTest_plt/{}_abcInductor_currents' + time + '.pdf'.format(J))
         #fig.savefig('Paper_meas_voltage_both/J_{}_abcInductor_currents.pdf'.format(J))
-        """
+
 
         fig = plt.figure()
         plt.plot(t, I_D, t, I_Q, t, I_0)
@@ -286,5 +332,18 @@ class TestbenchEnvVoltage(gym.Env):
         plt.show()
         time = strftime("%Y-%m-%d %H:%M:%S", gmtime())
         #fig.savefig('hardwareTest_plt/dq0Inductor_currents' + time + '.pdf')
-        fig.savefig('Paper_meas/J_{}_dq0Inductor_currents.pdf'.format(J))
-        """
+        #fig.savefig('Paper_meas/J_{}_dq0Inductor_currents.pdf'.format(J))
+
+        fig = plt.figure()
+        plt.plot(t, Io_A, 'b', label=r'$i_{\mathrm{a}}$')
+        plt.plot(t, Io_B, 'g')
+        plt.plot(t, Io_C, 'r')
+        # plt.plot(t, SP_A, 'b--', label = r'$i_{\mathrm{a}}$')
+        # plt.plot(t, SP_B, 'g--')
+        # plt.plot(t, SP_C, 'r--')
+        plt.xlabel(r'$t\,/\,\mathrm{s}$')
+        plt.ylabel('$i_{\mathrm{abc,est}}\,/\,\mathrm{A}$')
+        # plt.title('{}'.format(J))
+        plt.grid()
+        plt.legend()
+        plt.show()

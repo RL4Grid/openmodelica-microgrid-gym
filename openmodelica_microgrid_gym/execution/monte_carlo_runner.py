@@ -107,29 +107,29 @@ class MonteCarloRunner:
                         self.agent.prepare_episode()
 
                         break
-                """
+
                 plt.plot(t, r_vec)
                 plt.ylabel('Reward')
                 plt.grid(True)
-                plt.savefig('Ki_rewTest' + '/Rew_abc_ohneBuffer{}.pdf'.format(m))
+                #plt.savefig('Ki_rewTest' + '/Rew_abc_ohneBuffer{}.pdf'.format(m))
                 plt.show()
 
                 plt.plot(t, np.cumsum(r_vec))
                 plt.ylabel('Cummulated Reward')
                 plt.grid(True)
-                plt.savefig('Ki_rewTest'+'/cumRew_abc_ohneBuffer{}.pdf'.format(m))
+                #plt.savefig('Ki_rewTest'+'/cumRew_abc_ohneBuffer{}.pdf'.format(m))
                 plt.show()
-                """
+
 
                 _, env_fig = self.env.close()
 
                 # vor break?
-                if (m == 0 and i == 0) or self.agent.has_improved:
+                if (m == 0 and i == 0):# and self.agent.has_improved:
                     self.run_data['best_env_plt'] = env_fig
                     self.run_data['best_episode_idx'] = i
                     self.agent.last_best_performance = self.agent.performance
 
-                if (m == 0 and i == 0) or self.agent.has_worsened:
+                if (m == 0 and i == 0):# and self.agent.has_worsened:
                     self.run_data['worst_env_plt'] = env_fig
                     self.run_data['worst_episode_idx'] = i
                     self.agent.last_worst_performance = self.agent.performance
