@@ -35,7 +35,7 @@ G = np.array([[0, 0, 0],
                    [0, 0, G_RL_load]])
 
 P_offset = np.array([0, 0, 0])
-droop_linear = np.array([10000, 1000, 0])     # W/Hz
+droop_linear = np.array([10000, 1000, 1000])     # W/Hz
 
 
 print(B)
@@ -153,7 +153,9 @@ m.solve()
 
 #Results
 
-plt.plot(m.time,freq1)
+plt.plot(m.time,freq1,'b')
+plt.plot(m.time,freq2,'r')
+plt.plot(m.time,freq3,'g')
 plt.xlabel('time')
 plt.ylabel('w1(t)')
 plt.show()
