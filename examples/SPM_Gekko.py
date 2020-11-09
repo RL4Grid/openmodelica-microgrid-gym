@@ -41,9 +41,9 @@ droop_linear = np.array([10000, 1000, 1000])     # W/Hz
 print(B)
 print(G)
 
-#P1 = m.Param(value=1000)
-#P2 = m.Param(value=1000)
-#P3 = m.Param(value=-2000)
+P1 = m.Var(value=0)
+P2 = m.Var(value=0)
+P3 = m.Var(value=0)
 #Q1 = m.Param(value=100)
 #Q2 = m.Param(value=100)
 #Q3 = m.Param(value=-200)
@@ -67,15 +67,15 @@ theta3.value = 0
 
 #constraints
 
-#m.Equation(P1 == u1 * u1 * (G[0][0] * m.cos(theta1 - theta1) + B[0][0] * m.sin(theta1 - theta1)) + \
-#           u1 * u2 * (G[0][1] * m.cos(theta1 - theta2) + B[0][1] * m.sin(theta1 - theta2)) + \
-#           u1 * u3 * (G[0][2] * m.cos(theta1 - theta3) + B[0][2] * m.sin(theta1 - theta3)))
-#m.Equation(P2 == u2 * u1 * (G[1][0] * m.cos(theta2 - theta1) + B[1][0] * m.sin(theta2 - theta1)) + \
-#           u2 * u2 * (G[1][1] * m.cos(theta2 - theta2) + B[1][1] * m.sin(theta2 - theta2)) + \
-#           u2 * u3 * (G[1][2] * m.cos(theta2 - theta3) + B[1][2] * m.sin(theta2 - theta3)))
-#m.Equation(P3 == u3 * u1 * (G[0][0] * m.cos(theta3 - theta1) + B[2][0] * m.sin(theta3 - theta1)) + \
-#           u3 * u2 * (G[0][1] * m.cos(theta3 - theta2) + B[2][1] * m.sin(theta3 - theta2)) + \
-#           u3 * u3 * (G[0][2] * m.cos(theta3 - theta3) + B[2][2] * m.sin(theta3 - theta3)))
+m.Equation(P1 == u1 * u1 * (-G[0][0] * m.cos(theta1 - theta1) + B[0][0] * m.sin(theta1 - theta1)) + \
+           u1 * u2 * (-G[0][1] * m.cos(theta1 - theta2) + B[0][1] * m.sin(theta1 - theta2)) + \
+           u1 * u3 * (-G[0][2] * m.cos(theta1 - theta3) + B[0][2] * m.sin(theta1 - theta3)))
+m.Equation(P2 == u2 * u1 * (-G[1][0] * m.cos(theta2 - theta1) + B[1][0] * m.sin(theta2 - theta1)) + \
+           u2 * u2 * (-G[1][1] * m.cos(theta2 - theta2) + B[1][1] * m.sin(theta2 - theta2)) + \
+           u2 * u3 * (-G[1][2] * m.cos(theta2 - theta3) + B[1][2] * m.sin(theta2 - theta3)))
+m.Equation(P3 == u3 * u1 * (-G[0][0] * m.cos(theta3 - theta1) + B[2][0] * m.sin(theta3 - theta1)) + \
+           u3 * u2 * (-G[0][1] * m.cos(theta3 - theta2) + B[2][1] * m.sin(theta3 - theta2)) + \
+           u3 * u3 * (-G[0][2] * m.cos(theta3 - theta3) + B[2][2] * m.sin(theta3 - theta3)))
 
 #Q1 = u1 * u1 * (G[0][0] * m.sin(theta1 - theta1) + B[0][0] * m.cos(theta1 - theta1)) + \
 #           u1 * u2 * (G[0][1] * m.sin(theta1 - theta2) + B[0][1] * m.cos(theta1 - theta2)) + \
@@ -98,15 +98,19 @@ m.Equation(theta3.dt()==freq3)
 
 J = 2
 
-m.Equation(freq1.dt()== ((u1 * u1 * (G[0][0] * m.cos(theta1 - theta1) + B[0][0] * m.sin(theta1 - theta1)) + \
-           u1 * u2 * (G[0][1] * m.cos(theta1 - theta2) + B[0][1] * m.sin(theta1 - theta2)) + \
-           u1 * u3 * (G[0][2] * m.cos(theta1 - theta3) + B[0][2] * m.sin(theta1 - theta3)))-droop_linear[0]*(freq1-nomFreq))/(J*freq1))
-m.Equation(freq2.dt()== ((u2 * u1 * (G[1][0] * m.cos(theta2 - theta1) + B[1][0] * m.sin(theta2 - theta1)) + \
-           u2 * u2 * (G[1][1] * m.cos(theta2 - theta2) + B[1][1] * m.sin(theta2 - theta2)) + \
-           u2 * u3 * (G[1][2] * m.cos(theta2 - theta3) + B[1][2] * m.sin(theta2 - theta3)))-droop_linear[1]*(freq2-nomFreq))/(J*freq2))
-m.Equation(freq3.dt()== ((u3 * u1 * (G[2][0] * m.cos(theta3 - theta1) + B[2][0] * m.sin(theta3 - theta1)) + \
-           u3 * u2 * (G[2][1] * m.cos(theta3 - theta2) + B[2][1] * m.sin(theta3 - theta2)) + \
-           u3 * u3 * (G[2][2] * m.cos(theta3 - theta3) + B[2][2] * m.sin(theta3 - theta3)))-droop_linear[2]*(freq3-nomFreq))/(J*freq3))
+m.Equation(freq1.dt()== (P1+droop_linear[0]*(freq1-nomFreq))/(J*freq1))
+m.Equation(freq2.dt()== (P2+droop_linear[1]*(freq2-nomFreq))/(J*freq2))
+m.Equation(freq3.dt()== (P3+droop_linear[2]*(freq3-nomFreq))/(J*freq3))
+
+# m.Equation(freq1.dt()== ((u1 * u1 * (-G[0][0] * m.cos(theta1 - theta1) + B[0][0] * m.sin(theta1 - theta1)) + \
+#            u1 * u2 * (-G[0][1] * m.cos(theta1 - theta2) + B[0][1] * m.sin(theta1 - theta2)) + \
+#            u1 * u3 * (-G[0][2] * m.cos(theta1 - theta3) + B[0][2] * m.sin(theta1 - theta3)))+droop_linear[0]*(freq1-nomFreq))/(J*freq1))
+# m.Equation(freq2.dt()== ((u2 * u1 * (-G[1][0] * m.cos(theta2 - theta1) + B[1][0] * m.sin(theta2 - theta1)) + \
+#            u2 * u2 * (-G[1][1] * m.cos(theta2 - theta2) + B[1][1] * m.sin(theta2 - theta2)) + \
+#            u2 * u3 * (-G[1][2] * m.cos(theta2 - theta3) + B[1][2] * m.sin(theta2 - theta3)))+droop_linear[1]*(freq2-nomFreq))/(J*freq2))
+# m.Equation(freq3.dt()== ((u3 * u1 * (-G[2][0] * m.cos(theta3 - theta1) + B[2][0] * m.sin(theta3 - theta1)) + \
+#            u3 * u2 * (-G[2][1] * m.cos(theta3 - theta2) + B[2][1] * m.sin(theta3 - theta2)) + \
+#            u3 * u3 * (-G[2][2] * m.cos(theta3 - theta3) + B[2][2] * m.sin(theta3 - theta3)))+droop_linear[2]*(freq3-nomFreq))/(J*freq3))
 
 #m.Equation(J*w1*w1.dt()==u1 * u1 * (G[0][0] * m.cos(theta1 - theta1) + B[0][0] * m.sin(theta1 - theta1)) + \
 #           u1 * u2 * (G[0][1] * m.cos(theta1 - theta2) + B[0][1] * m.sin(theta1 - theta2)) + \
@@ -144,7 +148,7 @@ m.Equation(freq3.dt()== ((u3 * u1 * (G[2][0] * m.cos(theta3 - theta1) + B[2][0] 
 #Set global options
 m.options.IMODE = 7
 m.options.SOLVER = 1
-m.time = np.linspace(0,20, 300) # time points
+m.time = np.linspace(0, 5, 50) # time points
 
 
 
@@ -156,6 +160,13 @@ m.solve()
 plt.plot(m.time,freq1,'b')
 plt.plot(m.time,freq2,'r')
 plt.plot(m.time,freq3,'g')
+plt.xlabel('time')
+plt.ylabel('w1(t)')
+plt.show()
+
+plt.plot(m.time,P1,'b')
+plt.plot(m.time,P2,'r')
+plt.plot(m.time,P3,'g')
 plt.xlabel('time')
 plt.ylabel('w1(t)')
 plt.show()
