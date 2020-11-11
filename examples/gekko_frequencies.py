@@ -35,7 +35,7 @@ G = np.array([[0, 0, 0],
 #u1 = m.Var(value=230)
 #u2 = m.Var(value=230)
 #u3 = m.Var(value=230)
-
+p_offset = [0, 0, 0]
 u1 = 230
 u2 = 230
 u3 = 230
@@ -109,9 +109,9 @@ m.Equation(theta3.dt()==w3)
 #           u3 * u2 * -(G[2][1] * m.cos(theta3 - theta2) + B[2][1] * m.sin(theta3 - theta2)) + \
 #           u3 * u3 * -(G[2][2] * m.cos(theta3 - theta3) + B[2][2] * m.sin(theta3 - theta3))))
 
-m.Equation(J*w1*w1.dt()==((-P1)+(droop_linear[0]*(w1-nomFreq)))/(J*w1))
-m.Equation(J*w2*w3.dt()==((-P2)+(droop_linear[1]*(w2-nomFreq)))/(J*w2))
-m.Equation(J*w3*w3.dt()==((-P3)+(droop_linear[2]*(w3-nomFreq)))/(J*w3))
+m.Equation(J*w1*w1.dt()==((-P1+p_offset[0])+(droop_linear[0]*(w1-nomFreq)))/(J*w1))
+m.Equation(J*w2*w3.dt()==((-P2+p_offset[1])+(droop_linear[1]*(w2-nomFreq)))/(J*w2))
+m.Equation(J*w3*w3.dt()==((-P3+p_offset[2])+(droop_linear[2]*(w3-nomFreq)))/(J*w3))
 
 #Q_ODE
 
@@ -140,7 +140,7 @@ m.Equation(J*w3*w3.dt()==((-P3)+(droop_linear[2]*(w3-nomFreq)))/(J*w3))
 #Set global options
 m.options.IMODE = 7 #steady state optimization
 
-m.time = np.linspace(0,10,500) # time points
+m.time = np.linspace(0,50,500) # time points
 
 
 
