@@ -121,9 +121,9 @@ m.Equation(J*w3*w3.dt()==((-P3)+(droop_linear[2]*(w3-nomFreq)))/(J*w2))
 
 
 
-m.Equation(J*u1*u1.dt()==((-Q1)+(q_droop_linear[0]*(w1-nomVolt)))/(J_Q*w1))
-m.Equation(J*u2*u3.dt()==((-Q2)+(q_droop_linear[1]*(w2-nomVolt)))/(J_Q*w2))
-m.Equation(J*u3*u3.dt()==((-Q3)+(q_droop_linear[2]*(w3-nomVolt)))/(J_Q*w2))
+m.Equation(J*u1*u1.dt()==((-Q1)+(q_droop_linear[0]*(u1-nomVolt)))/(J_Q*u1))
+m.Equation(J*u2*u3.dt()==((-Q2)+(q_droop_linear[1]*(u2-nomVolt)))/(J_Q*u2))
+m.Equation(J*u3*u3.dt()==((-Q3)+(q_droop_linear[2]*(u3-nomVolt)))/(J_Q*u3))
 
 #m.Equation(J_Q*u1*u1.dt()==(-Q1))
 #m.Equation(J_Q*u2*u2.dt()==(-Q2))
