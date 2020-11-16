@@ -48,6 +48,35 @@ class DDS:
         return self._integralSum * 2 * np.pi
 
 
+class LimitLoadIntegral:
+    def __init__(self, dt, freq, limit_energy, nominal_energy=None):
+        self.dt = dt
+        # number of samples for a half freq
+        self._buffer = np.empty(int(freq / 2 / dt))
+        self._buff_idx = 0
+        self.integral = 0
+        self.limit_energy = limit_energy
+        if nominal_energy:
+            self.nominal_energy = nominal_energy
+        else:
+            self.nominal_energy = limit_energy * .9
+
+    def reset(self):
+        self.integral = 0
+        self._buffer.fill(0)
+        self._buff_idx = 0
+
+    def step(self, value):
+        self.integral += self.dt * value ** 2
+        last = self._buffer[np.ravel_multi_index([self._buff_idx - 1], self._buffer.size, mode='wrap')]
+        self.integral -= self.dt * last ** 2
+        self._buff_idx = np.ravel_multi_index([self._buff_idx + 1], self._buffer.size, mode='wrap')
+        self._buffer[self._buff_idx] = value
+
+    def risk(self):
+        return np.clip((self.integral - self.nominal_energy) / (self.limit_energy - self.nominal_energy), 0, 1)
+
+
 class PLL:
     """
     Implements a basic PI controller based PLL to track the angle of a three-phase
