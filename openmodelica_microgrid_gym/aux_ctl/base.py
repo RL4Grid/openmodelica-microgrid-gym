@@ -39,11 +39,11 @@ class DDS:
 
         :return theta: The angle in RADIANS [0:2pi]
         """
-        self._integralSum = self._integralSum + self._ts * freq
+        self._integralSum += self._ts * freq
 
-        # Limit output to exactly the limit
+        # reset oscilator one phase
         if self._integralSum > self._max:
-            self._integralSum = self._integralSum - self._max
+            self._integralSum -= self._max
 
         return self._integralSum * 2 * np.pi
 
